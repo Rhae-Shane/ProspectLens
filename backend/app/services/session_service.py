@@ -2,12 +2,12 @@ import uuid
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect as sa_inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Report, ResearchSession, WorkflowStatus
-from app.schemas import ReportContent, SessionCreate, SessionResponse
+from app.schemas import ReportContent, SessionCreate, SessionResponse, normalize_report_content
 
 
 class SessionService:
@@ -23,7 +23,8 @@ class SessionService:
         )
         db.add(session)
         await db.flush()
-        return session
+        created = await SessionService.get(db, session.id)
+        return created or session
 
     @staticmethod
     async def get(db: AsyncSession, session_id: UUID) -> Optional[ResearchSession]:
@@ -54,8 +55,8 @@ class SessionService:
     @staticmethod
     def to_response(session: ResearchSession) -> SessionResponse:
         report = None
-        if session.report:
-            report = ReportContent(**session.report.content)
+        if "report" not in sa_inspect(session).unloaded and session.report:
+            report = ReportContent(**normalize_report_content(session.report.content))
         return SessionResponse(
             id=session.id,
             company_name=session.company_name,
@@ -73,12 +74,13 @@ class SessionService:
 
     @staticmethod
     async def save_report(db: AsyncSession, session_id: UUID, content: dict) -> Report:
+        normalized = normalize_report_content(content)
         existing = await db.execute(select(Report).where(Report.session_id == session_id))
         report = existing.scalar_one_or_none()
         if report:
-            report.content = content
+            report.content = normalized
         else:
-            report = Report(id=uuid.uuid4(), session_id=session_id, content=content)
+            report = Report(id=uuid.uuid4(), session_id=session_id, content=normalized)
             db.add(report)
         await db.flush()
         return report

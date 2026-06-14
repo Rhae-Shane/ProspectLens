@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from app.providers import openai_client
+from app.schemas import normalize_report_content
 
 REPORT_SYSTEM = """You are a sales research report writer. Generate a comprehensive meeting briefing as JSON.
 Required keys (all mandatory):
@@ -36,6 +37,7 @@ Business Analysis:
 Generate the complete structured research report."""
 
     report, tokens, cost = await openai_client.complete_json(REPORT_SYSTEM, user_prompt)
+    report = normalize_report_content(report)
 
     # Collect all sources from research
     all_sources = []

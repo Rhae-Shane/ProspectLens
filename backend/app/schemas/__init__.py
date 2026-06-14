@@ -5,6 +5,49 @@ from uuid import UUID
 from pydantic import BaseModel, Field, HttpUrl
 
 
+def _coerce_report_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        lines: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                parts = [str(v) for v in item.values() if v]
+                lines.append("- " + (": ".join(parts) if parts else str(item)))
+            else:
+                lines.append(f"- {item}")
+        return "\n".join(lines)
+    return str(value)
+
+
+def normalize_report_content(content: dict[str, Any]) -> dict[str, Any]:
+    """Coerce LLM output into the shape expected by ReportContent."""
+    normalized = dict(content)
+    for key in (
+        "company_overview",
+        "products_services",
+        "target_customers",
+        "business_signals",
+        "risks_challenges",
+        "outreach_strategy",
+    ):
+        if key in normalized:
+            normalized[key] = _coerce_report_text(normalized[key])
+    for key in ("discovery_questions", "unknowns"):
+        if key not in normalized:
+            continue
+        value = normalized[key]
+        if isinstance(value, list):
+            normalized[key] = [str(item) for item in value]
+        elif isinstance(value, str):
+            normalized[key] = [value] if value else []
+        else:
+            normalized[key] = [str(value)]
+    return normalized
+
+
 class SourceItem(BaseModel):
     title: str
     url: str
