@@ -11,8 +11,7 @@ export function useWorkflowEvents(sessionId: string, enabled: boolean) {
   useEffect(() => {
     if (!enabled || !sessionId) return
 
-    const url = getEventStreamUrl(sessionId)
-    const source = new EventSource(url)
+    const source = new EventSource(getEventStreamUrl(sessionId))
     sourceRef.current = source
 
     source.onopen = () => setConnected(true)

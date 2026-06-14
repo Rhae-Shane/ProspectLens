@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Textarea } from '@/components/ui/Textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function NewSessionPage() {
   const navigate = useNavigate()
@@ -31,25 +32,27 @@ export function NewSessionPage() {
       <Card>
         <CardHeader>
           <CardTitle>New Research Session</CardTitle>
-          <p className="text-sm text-gray-500 mt-1">
+          <CardDescription>
             Enter company details and your research objective. The AI workflow will generate a
             structured meeting briefing.
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Company Name</Label>
               <Input
+                id="company-name"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="e.g. Stripe"
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+            <div className="space-y-2">
+              <Label htmlFor="website">Website</Label>
               <Input
+                id="website"
                 value={website}
                 onChange={(e) => setWebsite(e.target.value)}
                 placeholder="https://stripe.com"
@@ -57,11 +60,10 @@ export function NewSessionPage() {
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Research Objective
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="objective">Research Objective</Label>
               <Textarea
+                id="objective"
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
                 placeholder="e.g. Prepare for an enterprise sales meeting to discuss payment infrastructure integration..."
@@ -70,7 +72,7 @@ export function NewSessionPage() {
               />
             </div>
             {createMutation.isError && (
-              <p className="text-sm text-red-600">{(createMutation.error as Error).message}</p>
+              <p className="text-sm text-destructive">{(createMutation.error as Error).message}</p>
             )}
             <Button type="submit" disabled={createMutation.isPending} className="w-full">
               {createMutation.isPending ? 'Creating & Starting Research...' : 'Create & Run Research'}

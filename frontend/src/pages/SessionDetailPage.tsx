@@ -2,12 +2,14 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { useWorkflowEvents } from '@/hooks/useWorkflowEvents'
-import { WorkflowProgress } from '@/components/WorkflowProgress'
-import { ReportViewer } from '@/components/ReportViewer'
-import { ChatPanel } from '@/components/ChatPanel'
-import { WorkflowTrace } from '@/components/WorkflowTrace'
-import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { WorkflowProgress } from '@/prospectlens/WorkflowProgress'
+import { ReportViewer } from '@/prospectlens/ReportViewer'
+import { ChatPanel } from '@/prospectlens/ChatPanel'
+import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
+import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
 import { formatCost } from '@/lib/utils'
 
@@ -45,7 +47,7 @@ export function SessionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-gray-500">
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading session...
       </div>
     )
@@ -53,10 +55,10 @@ export function SessionDetailPage() {
 
   if (isError || !session) {
     return (
-      <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
-        <AlertCircle className="h-5 w-5" />
-        {(error as Error)?.message || 'Session not found'}
-      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{(error as Error)?.message || 'Session not found'}</AlertDescription>
+      </Alert>
     )
   }
 
@@ -66,18 +68,18 @@ export function SessionDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{session.company_name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{session.company_name}</h1>
           <a
             href={session.website}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-brand-600 hover:underline inline-flex items-center gap-1"
+            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
           >
             {session.website} <ExternalLink className="h-3 w-3" />
           </a>
-          <p className="text-gray-600 mt-2">{session.objective}</p>
+          <p className="text-muted-foreground mt-2">{session.objective}</p>
           {session.total_tokens > 0 && (
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {session.total_tokens.toLocaleString()} tokens · {formatCost(session.total_cost_usd)}
             </p>
           )}
@@ -93,29 +95,19 @@ export function SessionDetailPage() {
               Retry
             </Button>
           )}
-          <span
-            className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-              session.status === 'completed'
-                ? 'bg-green-100 text-green-700'
-                : session.status === 'running'
-                  ? 'bg-blue-100 text-blue-700'
-                  : session.status === 'failed'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-600'
-            }`}
-          >
+          <div className="inline-flex items-center gap-1">
+            <SessionStatusBadge status={session.status} />
             {session.status === 'running' && (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              <Loader2 className="h-3 w-3 animate-spin text-primary" />
             )}
-            {session.status}
-          </span>
+          </div>
         </div>
       </div>
 
       {session.error_message && (
-        <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-          {session.error_message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{session.error_message}</AlertDescription>
+        </Alert>
       )}
 
       <Card>
