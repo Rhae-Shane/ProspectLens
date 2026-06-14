@@ -81,3 +81,28 @@ npm run dev
 cd backend
 pytest tests/ -v
 ```
+## Hot Reload Development (Docker)
+
+For development with live reload on code changes:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+- Frontend (Vite HMR): http://localhost:5173
+- Backend (uvicorn --reload): http://localhost:8000
+
+Changes to `backend/app/` and `frontend/src/` reload automatically without rebuilding images.
+
+### Local dev without Docker
+
+```bash
+# Terminal 1 - infra
+docker compose up postgres redis -d
+
+# Terminal 2 - backend
+cd backend && uvicorn app.main:app --reload --port 8000
+
+# Terminal 3 - frontend
+cd frontend && npm run dev
+```

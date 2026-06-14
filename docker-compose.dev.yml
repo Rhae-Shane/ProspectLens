@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/public:/app/public
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: ""
+      VITE_PROXY_TARGET: http://backend:8000
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    depends_on:
+      - backend
