@@ -15,9 +15,10 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o"
     perplexity_model: str = "sonar-pro"
     log_level: str = "INFO"
-    langchain_tracing_v2: str = "false"
-    langchain_api_key: str = ""
-    langchain_project: str = "prospectlens"
+    langsmith_tracing: str = "false"
+    langsmith_endpoint: str = ""
+    langsmith_api_key: str = ""
+    langsmith_project: str = "prospectlens"
     quality_threshold: float = 0.75
     max_retries: int = 2
     research_cache_ttl: int = 86400

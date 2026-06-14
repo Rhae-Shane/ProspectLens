@@ -37,7 +37,7 @@ After Quality Check, if quality_score >= 0.75 OR retry_count >= 2, route to Repo
 
 ## Observability Harness
 
-- LangSmith: Automatic tracing when LANGCHAIN_TRACING_V2=true
+- LangSmith: Automatic tracing when LANGSMITH_TRACING=true
 - Workflow Events DB: Every node transition persisted with tokens, cost, duration
 - SSE Stream: Real-time event delivery to frontend progress UI
 - Structured Logging: JSON logs via structlog with session/node context

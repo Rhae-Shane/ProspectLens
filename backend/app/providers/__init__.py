@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Any
 
 import httpx
@@ -7,15 +6,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import get_settings
+from app.observability.tracer import configure_tracing
 
 settings = get_settings()
-
-# Enable LangSmith tracing when configured
-if settings.langchain_tracing_v2.lower() == "true":
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    if settings.langchain_api_key:
-        os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
-    os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
+configure_tracing()
 
 
 class OpenAIClient:
