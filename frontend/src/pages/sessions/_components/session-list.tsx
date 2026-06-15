@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { format, parseISO } from 'date-fns'
-import { Loader2, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import { CalendarDays, Loader2, Plus, Search, Sparkles, Target } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -8,39 +8,16 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
+import { formatCost, cn } from '@/lib/utils'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import type { Session } from '@/types/report'
 
-const statusRingClasses: Record<string, string> = {
-  completed: 'text-green-600',
-  running: 'text-primary',
-  pending: 'text-muted-foreground',
-  failed: 'text-destructive',
-}
-
-function getSessionProgress(status: string) {
-  switch (status) {
-    case 'completed':
-      return 100
-    case 'running':
-      return 65
-    case 'pending':
-      return 15
-    case 'failed':
-      return 100
-    default:
-      return 0
-  }
-}
-
-function getProgressRingClass(status: string) {
-  const key = status in statusRingClasses ? status : 'pending'
-  return cn(
-    'grid size-3 place-items-center rounded-full p-[0.5px] bg-[conic-gradient(currentColor_0deg_var(--angle),transparent_var(--angle)_360deg)]',
-    statusRingClasses[key]
-  )
+const statusAccentClasses: Record<string, string> = {
+  completed: 'border-l-green-500/80',
+  running: 'border-l-primary',
+  pending: 'border-l-muted-foreground/50',
+  failed: 'border-l-destructive',
 }
 
 type SessionCardProps = {
@@ -50,8 +27,9 @@ type SessionCardProps = {
 }
 
 function SessionCard({ session, active, onSelectSession }: SessionCardProps) {
-  const angle = (getSessionProgress(session.status) / 100) * 360
   const createdAt = parseISO(session.created_at)
+  const accent = statusAccentClasses[session.status] ?? 'border-l-border'
+  const isRunning = session.status === 'running' || session.status === 'pending'
 
   return (
     <button
@@ -62,59 +40,54 @@ function SessionCard({ session, active, onSelectSession }: SessionCardProps) {
         onSelectSession(session.id)
       }}
       className={cn(
-        'flex w-full flex-col gap-4 rounded-xl border p-3 text-left transition-colors',
-        'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        active && 'border-primary bg-muted/50'
+        'group flex w-full flex-col gap-3 rounded-xl border border-l-[3px] bg-card p-3.5 text-left transition-all',
+        'hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        accent,
+        active
+          ? 'border-primary/50 bg-muted/50 shadow-sm ring-1 ring-primary/15'
+          : 'border-border/80 hover:border-border'
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-muted-foreground text-xs tabular-nums">
-          {session.id.slice(0, 8)}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <div
-            style={{ '--angle': `${angle}deg` } as React.CSSProperties}
-            className={getProgressRingClass(session.status)}
-          >
-            <div className="grid size-2 place-items-center rounded-full bg-card">
-              <div className="size-1 rounded-full bg-current" />
+      <div className="flex items-start gap-3">
+        <CompanyLogo name={session.company_name} website={session.website} size="lg" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-sm leading-tight">{session.company_name}</h3>
+              <p className="mt-1 truncate text-muted-foreground text-xs">{session.website}</p>
             </div>
+            <SessionStatusBadge status={session.status} className="shrink-0 text-[10px]" />
           </div>
-          <SessionStatusBadge status={session.status} className="text-[10px]" />
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <CompanyLogo name={session.company_name} website={session.website} size="md" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-sm leading-none">{session.company_name}</div>
-          <div className="mt-1 truncate text-muted-foreground text-xs">{session.website}</div>
-        </div>
+      <div className="flex items-start gap-2 rounded-lg bg-muted/30 px-2.5 py-2">
+        <Target className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+        <p className="line-clamp-2 text-muted-foreground text-sm leading-relaxed">{session.objective}</p>
       </div>
 
-      <div className="flex items-center gap-0.5">
-        <span
-          className="h-px min-w-0 border-foreground border-t border-dashed"
-          style={{ flexGrow: getSessionProgress(session.status), flexBasis: 0 }}
-        />
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-          {session.workflow_status || session.status}
-        </span>
-        <span
-          className="h-px min-w-0 border-border border-t border-dashed"
-          style={{ flexGrow: 100 - getSessionProgress(session.status), flexBasis: 0 }}
-        />
-      </div>
-
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-muted-foreground text-xs leading-none">Objective</div>
-          <div className="mt-1 line-clamp-2 text-sm tracking-tight">{session.objective}</div>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <CalendarDays className="size-3.5" />
+          <span className="tabular-nums">{format(createdAt, 'MMM d, h:mm a')}</span>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-muted-foreground text-xs leading-none">Created</div>
-          <div className="mt-1 text-sm tabular-nums tracking-tight">{format(createdAt, 'MMM d')}</div>
-          <div className="text-muted-foreground text-xs">{format(createdAt, 'h:mm a')}</div>
+        <div className="flex items-center gap-2">
+          {isRunning ? (
+            <span className="inline-flex items-center gap-1 text-primary">
+              <Loader2 className="size-3 animate-spin" />
+              In progress
+            </span>
+          ) : session.status === 'completed' ? (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Sparkles className="size-3 text-green-600" />
+              Briefing ready
+            </span>
+          ) : null}
+          {session.total_tokens > 0 ? (
+            <span className="text-muted-foreground tabular-nums">
+              {session.total_tokens.toLocaleString()} tok · {formatCost(session.total_cost_usd)}
+            </span>
+          ) : null}
         </div>
       </div>
     </button>
@@ -180,24 +153,20 @@ export function SessionList({
   }, [sessions, searchQuery, statusFilter])
 
   return (
-    <Card className="flex h-full flex-col rounded-none ring-0">
-      <CardHeader>
+    <Card className="flex h-full min-h-0 w-full flex-col rounded-none ring-0">
+      <CardHeader className="shrink-0 border-b">
         <CardTitle className="font-normal text-xl">Research Sessions</CardTitle>
         <CardAction>
-          <div className="flex items-center gap-1">
-            <Button asChild size="icon-sm" variant="ghost">
-              <Link to="/sessions/new" aria-label="New research session">
-                <Plus />
-              </Link>
-            </Button>
-            <Button size="icon-sm" variant="ghost" aria-label="Filter sessions">
-              <SlidersHorizontal />
-            </Button>
-          </div>
+          <Button asChild size="sm">
+            <Link to="/sessions/new">
+              <Plus data-icon="inline-start" />
+              New
+            </Link>
+          </Button>
         </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden px-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-0 pt-4">
         <Tabs value={statusFilter} onValueChange={onStatusFilterChange}>
           <TabsList className="w-full border-b px-4" variant="line">
             {statusTabs.map((tab) => (
@@ -208,12 +177,12 @@ export function SessionList({
           </TabsList>
         </Tabs>
 
-        <div className="px-4">
+        <div className="shrink-0 px-4">
           <InputGroup className="h-8">
             <InputGroupInput
               className="h-8"
               aria-label="Search sessions"
-              placeholder="Search sessions..."
+              placeholder="Search by company or objective..."
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
             />
@@ -239,8 +208,8 @@ export function SessionList({
             </Button>
           </div>
         ) : (
-          <ScrollArea className="h-0 flex-1">
-            <div className="flex flex-col gap-4 px-4 pb-4">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-3 px-4 pb-4">
               {filteredSessions.map((session) => (
                 <SessionCard
                   key={session.id}

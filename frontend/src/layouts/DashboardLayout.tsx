@@ -27,12 +27,15 @@ export function DashboardLayout() {
       <AppSidebar variant={sidebar_variant} collapsible={sidebar_collapsible} />
       <SidebarInset
         className={cn(
-          '[html[data-content-layout=centered]_&>*]:mx-auto',
-          '[html[data-content-layout=centered]_&>*]:w-full',
-          '[html[data-content-layout=centered]_&>*]:max-w-screen-2xl',
+          '[html[data-content-layout=centered]_&>div:has([data-content-padding=false])]:mx-0',
+          '[html[data-content-layout=centered]_&>div:has([data-content-padding=false])]:w-full',
+          '[html[data-content-layout=centered]_&>div:has([data-content-padding=false])]:max-w-none',
+          '[html[data-content-layout=centered]_&>div:not(:has([data-content-padding=false]))]:mx-auto',
+          '[html[data-content-layout=centered]_&>div:not(:has([data-content-padding=false]))]:w-full',
+          '[html[data-content-layout=centered]_&>div:not(:has([data-content-padding=false]))]:max-w-screen-2xl',
           'peer-data-[variant=inset]:border',
           '[--dashboard-header-height:--spacing(12)]',
-          'min-w-0 overflow-x-hidden'
+          'min-h-0 min-w-0 w-full overflow-hidden'
         )}
       >
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -60,7 +63,7 @@ export function DashboardLayout() {
             </div>
           </div>
         </header>
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0">
+        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0">
           <Outlet />
         </div>
       </SidebarInset>

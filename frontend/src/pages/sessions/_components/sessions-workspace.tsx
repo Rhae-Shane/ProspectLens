@@ -67,7 +67,7 @@ export function SessionsWorkspace() {
     <>
       <div
         data-content-padding="false"
-        className="grid h-[calc(100dvh-var(--dashboard-header-height))] overflow-hidden lg:grid-cols-[400px_minmax(0,1fr)] lg:divide-x"
+        className="grid min-h-0 w-full max-w-none flex-1 overflow-hidden lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)] lg:divide-x xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]"
       >
         <div className="h-full overflow-hidden">
           <SessionList
