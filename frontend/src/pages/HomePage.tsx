@@ -9,12 +9,13 @@ import { prefetchCompanyLogos } from "@/lib/company-logo-cache";
 
 import { OverviewMetrics } from "@/pages/home/_components/overview-metrics";
 import { RecentSessionsSection } from "@/pages/home/_components/recent-sessions-section";
+import { SessionsPerformanceOverview } from "@/pages/home/_components/sessions-performance-overview";
 import { WorkflowOverviewCard } from "@/pages/home/_components/workflow-overview-card";
 
 export function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["sessions", "home"],
-    queryFn: () => api.listSessions(1, 50),
+    queryFn: () => api.listSessions(1, 100),
     refetchInterval: (query) => {
       const items = query.state.data?.items;
       if (!items?.some((session) => session.status === "running" || session.status === "pending")) {
@@ -57,6 +58,8 @@ export function HomePage() {
       </div>
 
       <OverviewMetrics sessions={sessions} total={totalSessions} />
+
+      <SessionsPerformanceOverview sessions={sessions} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
         <RecentSessionsSection sessions={sessions} isLoading={isLoading} />
