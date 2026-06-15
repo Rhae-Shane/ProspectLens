@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     producthunt_developer_token: str = ""
     producthunt_api_key: str = ""
     producthunt_api_secret: str = ""
+    apollo_api_key: str = ""
     database_url: str = "postgresql+asyncpg://prospectlens:prospectlens@localhost:5432/prospectlens"
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
