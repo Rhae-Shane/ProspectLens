@@ -168,7 +168,8 @@ class PerplexityClient:
 openai_client = OpenAIClient()
 perplexity_client = PerplexityClient()
 
+from app.providers.firecrawl import firecrawl_client  # noqa: E402
 from app.providers.newsapi import newsapi_client  # noqa: E402
 from app.providers.tavily import tavily_client  # noqa: E402
 
-__all__ = ["openai_client", "perplexity_client", "tavily_client", "newsapi_client"]
+__all__ = ["openai_client", "perplexity_client", "tavily_client", "newsapi_client", "firecrawl_client"]

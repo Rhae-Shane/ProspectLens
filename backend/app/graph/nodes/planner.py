@@ -13,6 +13,12 @@ create a structured research plan as JSON with these keys:
   - tavily_max_results: integer 3-10 (more sources when the topic is broad or high-stakes)
   - news_days_back: integer 7-90 (shorter for fast-moving sectors, longer for strategic context)
   - news_max_results: integer 3-15 (more when recent news is critical to the objective)
+  - firecrawl_map_limit: integer 5-25 (pages to discover on the company website)
+  - firecrawl_scrape_extra_pages: integer 0-5 (key subpages to scrape beyond the homepage)
+  - firecrawl_use_search: boolean (true only when Firecrawl search adds value beyond Perplexity/Tavily)
+  - firecrawl_use_crawl: boolean (true only for deep multi-page site analysis; slower and costlier)
+  - firecrawl_search_limit: integer 3-10 (only if firecrawl_use_search is true)
+  - firecrawl_crawl_limit: integer 2-10 (only if firecrawl_use_crawl is true)
 
 Return ONLY valid JSON, no markdown."""
 

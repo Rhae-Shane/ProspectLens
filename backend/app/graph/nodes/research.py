@@ -4,7 +4,7 @@ from typing import Any
 from app.cache.context_cache import context_cache
 from app.config import get_settings
 from app.graph.search_config import parse_search_config
-from app.providers import newsapi_client, perplexity_client, tavily_client
+from app.providers import firecrawl_client, newsapi_client, perplexity_client, tavily_client
 
 RESEARCH_CONTEXT = "Company: {company}\nWebsite: {website}\nObjective: {objective}"
 settings = get_settings()
@@ -104,9 +104,99 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
                 )
             ]
 
-    query_results, news_results = await asyncio.gather(
+    async def run_firecrawl() -> list[tuple[dict[str, Any], int, float]]:
+        if not settings.firecrawl_api_key or not website:
+            return []
+
+        results: list[tuple[dict[str, Any], int, float]] = []
+
+        async def safe_call(coro: Any) -> tuple[dict[str, Any], int, float] | None:
+            try:
+                return await coro
+            except Exception as exc:
+                return (
+                    {
+                        "query": "firecrawl",
+                        "provider": "firecrawl",
+                        "content": f"firecrawl request failed: {exc}",
+                        "sources": [],
+                    },
+                    0,
+                    0.0,
+                )
+
+        try:
+            map_result, home_scrape = await asyncio.gather(
+                safe_call(
+                    firecrawl_client.map_site(
+                        website,
+                        limit=search_config["firecrawl_map_limit"],
+                    )
+                ),
+                safe_call(firecrawl_client.scrape(website)),
+            )
+            if map_result:
+                results.append(map_result)
+            if home_scrape:
+                results.append(home_scrape)
+
+            extra_urls = firecrawl_client.pick_scrape_urls(
+                website,
+                (map_result[0].get("sources", []) if map_result else []),
+                search_config["firecrawl_scrape_extra_pages"],
+            )
+            if extra_urls:
+                extra_scrapes = await asyncio.gather(
+                    *[safe_call(firecrawl_client.scrape(url)) for url in extra_urls]
+                )
+                for scrape_result in extra_scrapes:
+                    if scrape_result:
+                        results.append(scrape_result)
+
+            optional_tasks = []
+            if search_config["firecrawl_use_search"]:
+                optional_tasks.append(
+                    safe_call(
+                        firecrawl_client.search(
+                            f"{company} {objective}",
+                            limit=search_config["firecrawl_search_limit"],
+                        )
+                    )
+                )
+            if search_config["firecrawl_use_crawl"]:
+                optional_tasks.append(
+                    safe_call(
+                        firecrawl_client.crawl(
+                            website,
+                            limit=search_config["firecrawl_crawl_limit"],
+                        )
+                    )
+                )
+            if optional_tasks:
+                optional_results = await asyncio.gather(*optional_tasks)
+                for optional_result in optional_results:
+                    if optional_result:
+                        results.append(optional_result)
+        except Exception as exc:
+            results.append(
+                (
+                    {
+                        "query": "firecrawl",
+                        "provider": "firecrawl",
+                        "content": f"firecrawl pipeline failed: {exc}",
+                        "sources": [],
+                    },
+                    0,
+                    0.0,
+                )
+            )
+
+        return results
+
+    query_results, news_results, firecrawl_results = await asyncio.gather(
         asyncio.gather(*[run_query(q) for q in queries]),
         run_news(),
+        run_firecrawl(),
     )
 
     raw_research: list[dict[str, Any]] = []
@@ -123,6 +213,11 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         total_tokens += tokens
         total_cost += cost
 
+    for result, tokens, cost in firecrawl_results:
+        raw_research.append(result)
+        total_tokens += tokens
+        total_cost += cost
+
     if state.get("retry_count", 0) == 0:
         await context_cache.set_research(company, website, objective, raw_research)
 
@@ -133,6 +228,8 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         providers_used.append("tavily")
     if settings.newapiorg_api_key:
         providers_used.append("newsapi")
+    if settings.firecrawl_api_key and website:
+        providers_used.append("firecrawl")
 
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["research"] = {
