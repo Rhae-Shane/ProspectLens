@@ -67,6 +67,7 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     session: Mapped["ResearchSession"] = relationship(back_populates="chat_messages")

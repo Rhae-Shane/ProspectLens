@@ -50,11 +50,31 @@ export interface WorkflowEvent {
   created_at: string
 }
 
+export interface ChatTool {
+  id: string
+  label: string
+  description: string
+  icon: string
+}
+
+export interface ChatToolUsage {
+  tool: string
+  query?: string
+  provider?: string
+  sources?: SourceItem[]
+}
+
+export interface ChatMessageMetadata {
+  tools?: string[]
+  tools_used?: ChatToolUsage[]
+}
+
 export interface ChatMessage {
   id: string
   role: string
   content: string
   tokens: number
+  metadata?: ChatMessageMetadata
   created_at: string
 }
 

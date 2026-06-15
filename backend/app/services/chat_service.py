@@ -5,13 +5,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.context_cache import context_cache
-from app.models import ChatMessage, ResearchSession, WorkflowStatus
-from app.providers import openai_client
+from app.models import ChatMessage, WorkflowStatus
+from app.services.chat_agent import run_chat_agent
+from app.services.chat_tools import normalize_tool_ids
 from app.services.session_service import SessionService
 
 CHAT_SYSTEM = """You are a sales research assistant helping prepare for a business meeting.
-Answer questions based ONLY on the research report provided. Be concise and actionable.
-If information is not in the report, say so and suggest what to ask in the meeting."""
+
+Use the research report as your primary source. When the user asks for information that is NOT in the report,
+or asks for current/recent figures (revenue, funding, headcount, valuation, etc.), call the web_search tool
+to find up-to-date information from the web before answering.
+
+Guidelines:
+- Prefer facts from the report when they are present and sufficient.
+- Use web_search proactively when the report lacks the requested detail.
+- When web search returns data, synthesize a clear answer and mention sources.
+- If web search finds conflicting figures, note the range and cite sources.
+- Be concise and actionable for sales meeting prep."""
 
 
 class ChatService:
@@ -25,7 +35,12 @@ class ChatService:
         return list(result.scalars().all())
 
     @staticmethod
-    async def send_message(db: AsyncSession, session_id: UUID, message: str) -> ChatMessage:
+    async def send_message(
+        db: AsyncSession,
+        session_id: UUID,
+        message: str,
+        tools: list[str] | None = None,
+    ) -> ChatMessage:
         session = await SessionService.get(db, session_id)
         if not session:
             raise ValueError("Session not found")
@@ -41,16 +56,35 @@ class ChatService:
 
         history = await ChatService.get_history(db, session_id)
         history_text = "\n".join(f"{m.role}: {m.content}" for m in history[-6:])
+        company_context = f"Company: {session.company_name}\nWebsite: {session.website}"
+        enabled_tools = normalize_tool_ids(tools)
 
         user_prompt = f"""Research Report Context:
 {report_context}
+
+Company Context:
+{company_context}
 
 Conversation History:
 {history_text}
 
 User Question: {message}"""
 
-        response_text, tokens, cost = await openai_client.complete_text(CHAT_SYSTEM, user_prompt)
+        response_text, tools_used, tokens, cost = await run_chat_agent(
+            system_prompt=CHAT_SYSTEM,
+            user_prompt=user_prompt,
+            company_context=company_context,
+            user_enabled_tools=enabled_tools,
+            allow_auto_tools=True,
+        )
+
+        user_metadata: dict = {}
+        if enabled_tools:
+            user_metadata["tools"] = sorted(enabled_tools)
+
+        assistant_metadata: dict = {}
+        if tools_used:
+            assistant_metadata["tools_used"] = tools_used
 
         user_msg = ChatMessage(
             id=uuid.uuid4(),
@@ -58,6 +92,7 @@ User Question: {message}"""
             role="user",
             content=message,
             tokens=0,
+            metadata=user_metadata,
         )
         assistant_msg = ChatMessage(
             id=uuid.uuid4(),
@@ -65,6 +100,7 @@ User Question: {message}"""
             role="assistant",
             content=response_text,
             tokens=tokens,
+            metadata=assistant_metadata,
         )
         db.add(user_msg)
         db.add(assistant_msg)

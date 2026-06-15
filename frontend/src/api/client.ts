@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  ChatTool,
   CreateSessionPayload,
   Session,
   SessionListResponse,
@@ -45,10 +46,12 @@ export const api = {
 
   getChatHistory: (id: string) => request<ChatMessage[]>(`/api/v1/sessions/${id}/chat`),
 
-  sendChatMessage: (id: string, message: string) =>
+  getChatTools: () => request<ChatTool[]>('/api/v1/chat/tools'),
+
+  sendChatMessage: (id: string, message: string, tools?: string[]) =>
     request<ChatMessage>(`/api/v1/sessions/${id}/chat`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, tools: tools?.length ? tools : undefined }),
     }),
 }
 

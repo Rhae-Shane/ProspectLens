@@ -72,6 +72,11 @@ export const sidebarItems: NavGroup[] = [
         url: "/reports",
         icon: FileText,
       },
+      {
+        title: "Follow-up Chat",
+        url: "/follow-up-chat",
+        icon: MessageSquare,
+      },
     ],
   },
   {

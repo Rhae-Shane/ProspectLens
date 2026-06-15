@@ -27,7 +27,7 @@ async def send_chat_message(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        message = await ChatService.send_message(db, session_id, data.message)
+        message = await ChatService.send_message(db, session_id, data.message, data.tools)
         return ChatMessageResponse.model_validate(message)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

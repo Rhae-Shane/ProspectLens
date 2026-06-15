@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, sessions, workflow
+from sqlalchemy import text
+
+from app.api import chat, chat_tools, sessions, workflow
 from app.cache.context_cache import context_cache
 from app.config import get_settings
 from app.database import Base, engine
@@ -21,6 +23,12 @@ async def lifespan(app: FastAPI):
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(
+            text(
+                "ALTER TABLE chat_messages "
+                "ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'"
+            )
+        )
 
     logger.info("application_started")
     yield
@@ -47,6 +55,7 @@ app.add_middleware(
 app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(workflow.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
+app.include_router(chat_tools.router, prefix="/api/v1")
 
 
 @app.get("/health", response_model=HealthResponse)
