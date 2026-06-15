@@ -28,6 +28,7 @@ import {
   type ReportSectionId,
   type StructuredReport,
 } from '@/types/structured-report'
+import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/BusinessSignalsDashboard'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
@@ -373,6 +374,16 @@ export function ReportNavContent({ navId, structured, session }: ReportNavConten
   if (navId === 'risks' && session) {
     return (
       <RisksChallengesDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'signals' && session) {
+    return (
+      <BusinessSignalsDashboard
         structured={structured}
         session={session}
         updatedAt={session.created_at}

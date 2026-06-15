@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { getStructuredReport } from '@/lib/structured-report-utils'
 import { cn, formatDisplayTimestamp } from '@/lib/utils'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
+import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/BusinessSignalsDashboard'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
@@ -209,9 +210,18 @@ export function ReportWorkspace({
               />
             ) : null}
 
+            {activeSection === 'signals' ? (
+              <BusinessSignalsDashboard
+                structured={structured}
+                session={session}
+                updatedAt={session.created_at}
+              />
+            ) : null}
+
             {activeSection !== 'company_overview' &&
             activeSection !== 'products' &&
             activeSection !== 'risks' &&
+            activeSection !== 'signals' &&
             activeSection !== 'chat' ? (
               <ReportNavContent
                 navId={activeSection}

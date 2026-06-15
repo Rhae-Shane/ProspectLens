@@ -20,6 +20,7 @@ from .extractors import (
     structured_to_legacy,
 )
 from .prompts import (
+    BUSINESS_SIGNALS_SYSTEM,
     COMPANY_OVERVIEW_SYSTEM,
     DISCOVERY_SYSTEM,
     OUTREACH_SYSTEM,
@@ -165,6 +166,21 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     risks = signals_payload.get("risks") or risks_from_analysis(analysis)
     node_outputs["report_signals_risks"] = {"signals": len(signals), "risks": len(risks)}
 
+    signals_overview_result, tokens, cost = await openai_client.complete_json(
+        BUSINESS_SIGNALS_SYSTEM,
+        f"Company: {state['company_name']}\n"
+        f"Signals seed:\n{json.dumps(signals, indent=2)}\n\n"
+        f"Analysis signals:\n{json.dumps(analysis.get('business_signals', []), indent=2)[:4000]}\n\n"
+        f"Research:\n{research_snippet[:4000]}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    business_signals = _parse_json_payload(signals_overview_result)
+    node_outputs["report_business_signals"] = {
+        "key_signals": len(business_signals.get("key_signals", [])),
+        "strength": business_signals.get("overall_strength", {}).get("score"),
+    }
+
     risks_overview_result, tokens, cost = await openai_client.complete_json(
         RISKS_CHALLENGES_SYSTEM,
         f"Company: {state['company_name']}\n"
@@ -240,6 +256,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "target_customers": products["target_customers"],
         "stakeholders": stakeholders,
         "signals": signals,
+        "business_signals": business_signals,
         "risks": risks,
         "risks_challenges": risks_challenges,
         "discovery_questions": discovery_questions,
@@ -261,6 +278,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
             "report_products",
             "report_stakeholders",
             "report_signals_risks",
+            "report_business_signals",
             "report_risks_challenges",
             "report_discovery",
             "report_outreach",

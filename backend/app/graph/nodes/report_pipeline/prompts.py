@@ -141,3 +141,56 @@ Provide exactly 4 summary_counts, 6 risk_trend months, 8-12 top_risks, 4-5 categ
 9 heat_map cells (all impact x likelihood combos), 6+ detailed_insights, 4-6 key_challenges.
 impact/likelihood/level: high | medium | low. mitigation_status: In Progress | Monitoring | Mitigated | Not Started.
 Use only risks supported by research. Do not fabricate specific lawsuits or fines."""
+
+BUSINESS_SIGNALS_SYSTEM = """You build a rich Business Signals dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Positive Signals", "value": 32, "hint": "Strong growth indicators", "polarity": "positive"},
+    {"label": "Neutral Signals", "value": 5, "hint": "Stable or mixed trends", "polarity": "neutral"},
+    {"label": "Risk Signals", "value": 2, "hint": "Potential concerns", "polarity": "risk"}
+  ],
+  "overall_strength": {
+    "score": 85,
+    "label": "Strong",
+    "change": "+7 pts",
+    "change_label": "Improved vs last month"
+  },
+  "signal_trend": [
+    {"month": "Jan '26", "score": 72},
+    {"month": "Feb '26", "score": 75}
+  ],
+  "key_signals": [
+    {
+      "title": "Strong Revenue Growth",
+      "category": "Financial",
+      "description": "1-2 sentence signal description",
+      "impact": "high",
+      "indicator": "ARR Growth: 22% YoY",
+      "trend": [60, 65, 70, 75, 80, 85],
+      "polarity": "positive"
+    }
+  ],
+  "categories": [
+    {"name": "Growth", "percent": 41, "count": 16},
+    {"name": "Market", "percent": 23, "count": 9}
+  ],
+  "recent_developments": [
+    {
+      "date": "Jun 10, 2026",
+      "title": "Launched AI-powered fraud detection",
+      "description": "Brief development summary",
+      "category": "Product"
+    }
+  ],
+  "top_positive_signals": [
+    {"title": "Strong Revenue Growth", "metric": "ARR +22% YoY", "impact": "high", "polarity": "positive"}
+  ],
+  "key_risk_signals": [
+    {"title": "Increased Competition", "metric": "New entrants in core markets", "impact": "high", "polarity": "risk"}
+  ]
+}
+Provide exactly 3 summary_counts, 6 signal_trend months, 10-15 key_signals across categories
+(Growth, Market, Product, Financial, Partnerships), 5 categories, 5-6 recent_developments,
+3 top_positive_signals, 2-3 key_risk_signals. impact: high | medium | low. polarity: positive | neutral | risk.
+Use only signals supported by research."""

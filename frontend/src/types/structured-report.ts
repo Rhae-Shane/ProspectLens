@@ -156,6 +156,69 @@ export interface BusinessSignal {
   sales_angle: string
 }
 
+export type SignalPolarity = 'positive' | 'neutral' | 'risk'
+export type SignalImpact = 'high' | 'medium' | 'low'
+
+export interface SignalSummaryCount {
+  label: string
+  value: number
+  hint: string
+  polarity: SignalPolarity
+}
+
+export interface OverallSignalStrength {
+  score: number
+  label: string
+  change: string
+  change_label: string
+}
+
+export interface SignalTrendPoint {
+  month: string
+  score: number
+}
+
+export interface KeyBusinessSignal {
+  title: string
+  category: string
+  description: string
+  impact: SignalImpact
+  indicator: string
+  trend: number[]
+  polarity: SignalPolarity
+}
+
+export interface SignalCategoryBreakdown {
+  name: string
+  percent: number
+  count: number
+}
+
+export interface RecentDevelopment {
+  date: string
+  title: string
+  description: string
+  category: string
+}
+
+export interface HighlightSignal {
+  title: string
+  metric: string
+  impact: SignalImpact
+  polarity: SignalPolarity
+}
+
+export interface BusinessSignalsOverview {
+  summary_counts: SignalSummaryCount[]
+  overall_strength: OverallSignalStrength
+  signal_trend: SignalTrendPoint[]
+  key_signals: KeyBusinessSignal[]
+  categories: SignalCategoryBreakdown[]
+  recent_developments: RecentDevelopment[]
+  top_positive_signals: HighlightSignal[]
+  key_risk_signals: HighlightSignal[]
+}
+
 export interface ReportRisk {
   title: string
   category: string
@@ -249,6 +312,7 @@ export interface StructuredReport {
   company_overview?: CompanyOverview
   products_services?: ProductsServicesOverview
   risks_challenges?: RisksChallengesOverview
+  business_signals?: BusinessSignalsOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]
