@@ -7,6 +7,8 @@ import type {
   ProductsServicesOverview,
   ReportContentWithStructured,
   ReportRisk,
+  RiskLevel,
+  RisksChallengesOverview,
   Stakeholder,
   StructuredReport,
 } from '@/types/structured-report'
@@ -240,6 +242,147 @@ export function buildProductsServices(structured: StructuredReport): ProductsSer
   }
 }
 
+function severityToLevel(severity: number): RiskLevel {
+  if (severity >= 4) return 'high'
+  if (severity >= 3) return 'medium'
+  return 'low'
+}
+
+const MITIGATION_STATUSES = ['Monitoring', 'In Progress', 'Mitigated', 'Not Started'] as const
+
+function defaultRiskTrend(): number[] {
+  return [2, 2, 2, 3, 3, 3]
+}
+
+function buildHeatMap(topRisks: RisksChallengesOverview['top_risks']): RisksChallengesOverview['heat_map'] {
+  const levels: RiskLevel[] = ['low', 'medium', 'high']
+  const counts = new Map<string, number>()
+
+  for (const risk of topRisks) {
+    const key = `${risk.impact}-${risk.likelihood}`
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
+  return levels.flatMap((impact) =>
+    levels.map((likelihood) => ({
+      impact,
+      likelihood,
+      count: counts.get(`${impact}-${likelihood}`) ?? 0,
+    }))
+  )
+}
+
+export function buildRisksChallenges(structured: StructuredReport): RisksChallengesOverview {
+  if (structured.risks_challenges) {
+    return structured.risks_challenges
+  }
+
+  const risks = structured.risks
+  const high = risks.filter((r) => severityToLevel(r.severity) === 'high')
+  const medium = risks.filter((r) => severityToLevel(r.severity) === 'medium')
+  const low = risks.filter((r) => severityToLevel(r.severity) === 'low')
+
+  const topRisks = risks.map((risk, index) => {
+    const level = severityToLevel(risk.severity)
+    return {
+      title: risk.title,
+      description: risk.body,
+      category: risk.category,
+      impact: level,
+      likelihood: level === 'high' ? 'high' : level === 'medium' ? 'medium' : 'low',
+      trend: defaultRiskTrend(),
+      mitigation_status: MITIGATION_STATUSES[index % MITIGATION_STATUSES.length],
+    }
+  })
+
+  const categoryMap = new Map<string, number>()
+  for (const risk of topRisks) {
+    categoryMap.set(risk.category, (categoryMap.get(risk.category) ?? 0) + 1)
+  }
+  const totalCategory = [...categoryMap.values()].reduce((sum, count) => sum + count, 0) || 1
+  const categories = [...categoryMap.entries()].map(([name, count]) => ({
+    name,
+    count,
+    percent: Math.round((count / totalCategory) * 100),
+  }))
+
+  const overallLevel: RiskLevel =
+    high.length >= medium.length && high.length > 0
+      ? 'high'
+      : medium.length > 0
+        ? 'medium'
+        : 'low'
+
+  const detailedInsights = risks.map((risk) => ({
+    title: risk.title,
+    description: risk.body,
+    potential_impact: severityToLevel(risk.severity),
+    time_horizon: '1-2 years',
+    mitigation: `Monitor ${risk.category.toLowerCase()} exposure and validate in discovery.`,
+    level: severityToLevel(risk.severity),
+  }))
+
+  return {
+    summary_counts: [
+      { label: 'High Risks', value: high.length || 1, hint: 'Require close monitoring', level: 'high' },
+      { label: 'Medium Risks', value: medium.length || 1, hint: 'Could impact growth', level: 'medium' },
+      { label: 'Low Risks', value: low.length || 1, hint: 'Manageable exposure', level: 'low' },
+      { label: 'Total Risks', value: risks.length || 3, hint: 'Across all categories', level: 'medium' },
+    ],
+    overall_risk_level: overallLevel,
+    overall_status:
+      overallLevel === 'high'
+        ? 'Needs active management'
+        : overallLevel === 'medium'
+          ? 'Monitor closely'
+          : 'Generally manageable',
+    risk_trend: [
+      { month: 'Jan', level: 'medium', score: 2 },
+      { month: 'Feb', level: 'medium', score: 2 },
+      { month: 'Mar', level: overallLevel, score: overallLevel === 'high' ? 3 : 2 },
+      { month: 'Apr', level: overallLevel, score: overallLevel === 'high' ? 3 : 2 },
+      { month: 'May', level: overallLevel, score: overallLevel === 'high' ? 3 : 2 },
+      { month: 'Jun', level: overallLevel, score: overallLevel === 'high' ? 3 : 2 },
+    ],
+    top_risks: topRisks.length
+      ? topRisks
+      : [
+          {
+            title: 'Competitive pressure',
+            description: 'Increasing competition in core markets.',
+            category: 'Market',
+            impact: 'medium',
+            likelihood: 'high',
+            trend: defaultRiskTrend(),
+            mitigation_status: 'Monitoring',
+          },
+        ],
+    categories: categories.length
+      ? categories
+      : [
+          { name: 'Market', percent: 40, count: 2 },
+          { name: 'Operational', percent: 30, count: 1 },
+          { name: 'Regulatory', percent: 30, count: 1 },
+        ],
+    heat_map: buildHeatMap(topRisks),
+    detailed_insights: detailedInsights.length
+      ? detailedInsights
+      : [
+          {
+            title: 'Market competition',
+            description: 'Competitive dynamics may pressure growth and margins.',
+            potential_impact: 'medium',
+            time_horizon: '1-2 years',
+            mitigation: 'Differentiate on product and customer experience.',
+            level: 'medium',
+          },
+        ],
+    key_challenges: structured.unknowns.length
+      ? structured.unknowns.slice(0, 6)
+      : risks.slice(0, 4).map((r) => r.title),
+  }
+}
+
 export function getStructuredReport(
   report: ReportContentWithStructured,
   session?: { company_name: string; website: string }
@@ -261,6 +404,10 @@ export function getStructuredReport(
 
   if (!structured.products_services) {
     structured.products_services = buildProductsServices(structured)
+  }
+
+  if (!structured.risks_challenges) {
+    structured.risks_challenges = buildRisksChallenges(structured)
   }
 
   return structured
@@ -406,7 +553,7 @@ export function isSectionComplete(structured: StructuredReport, sectionId: strin
     case 'signals':
       return structured.signals.length > 0
     case 'risks':
-      return structured.risks.length > 0
+      return Boolean(structured.risks_challenges?.top_risks.length || structured.risks.length > 0)
     case 'discovery':
       return structured.discovery_questions.length > 0
     case 'outreach':

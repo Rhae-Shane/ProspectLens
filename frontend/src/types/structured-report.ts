@@ -164,6 +164,64 @@ export interface ReportRisk {
   source?: string
 }
 
+export type RiskLevel = 'high' | 'medium' | 'low'
+
+export interface RiskSummaryCount {
+  label: string
+  value: number
+  hint: string
+  level: RiskLevel
+}
+
+export interface RiskTrendPoint {
+  month: string
+  level: RiskLevel
+  score: number
+}
+
+export interface TopRiskItem {
+  title: string
+  description: string
+  category: string
+  impact: RiskLevel
+  likelihood: RiskLevel
+  trend: number[]
+  mitigation_status: 'In Progress' | 'Monitoring' | 'Mitigated' | 'Not Started'
+}
+
+export interface RiskCategoryBreakdown {
+  name: string
+  percent: number
+  count: number
+}
+
+export interface HeatMapCell {
+  impact: RiskLevel
+  likelihood: RiskLevel
+  count: number
+}
+
+export interface DetailedRiskInsight {
+  title: string
+  description: string
+  potential_impact: RiskLevel
+  time_horizon: string
+  mitigation: string
+  level: RiskLevel
+}
+
+export interface RisksChallengesOverview {
+  summary_counts: RiskSummaryCount[]
+  overall_risk_level: RiskLevel
+  overall_status: string
+  risk_trend: RiskTrendPoint[]
+  top_risks: TopRiskItem[]
+  categories: RiskCategoryBreakdown[]
+  heat_map: HeatMapCell[]
+  detailed_insights: DetailedRiskInsight[]
+  key_challenges: string[]
+}
+
 export interface DiscoveryQuestion {
   question: string
   signal_source: string
@@ -190,6 +248,7 @@ export interface StructuredReport {
   commercial_profile: CommercialField
   company_overview?: CompanyOverview
   products_services?: ProductsServicesOverview
+  risks_challenges?: RisksChallengesOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]

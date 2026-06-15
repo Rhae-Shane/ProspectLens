@@ -87,3 +87,57 @@ Use scraped product pages, website content, and research. Return ONLY valid JSON
 Provide exactly 4 portfolio_metrics, 4-5 categories (percents sum ~100), 6-8 core_products (each with 3 features),
 and 4-6 additional_capabilities. category_color: core | risk | analytics | financial | compliance | default.
 Use only products found in research/scraped pages. Do not invent product names unrelated to the company."""
+
+RISKS_CHALLENGES_SYSTEM = """You build a rich Risks & Challenges dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "High Risks", "value": 7, "hint": "Require close monitoring", "level": "high"},
+    {"label": "Medium Risks", "value": 6, "hint": "Could impact growth", "level": "medium"},
+    {"label": "Low Risks", "value": 4, "hint": "Manageable exposure", "level": "low"},
+    {"label": "Total Risks", "value": 17, "hint": "Across all categories", "level": "medium"}
+  ],
+  "overall_risk_level": "high",
+  "overall_status": "Needs active management",
+  "risk_trend": [
+    {"month": "Jan", "level": "medium", "score": 2},
+    {"month": "Feb", "level": "medium", "score": 2},
+    {"month": "Mar", "level": "high", "score": 3},
+    {"month": "Apr", "level": "high", "score": 3},
+    {"month": "May", "level": "high", "score": 3},
+    {"month": "Jun", "level": "high", "score": 3}
+  ],
+  "top_risks": [
+    {
+      "title": "Dependence on Online Payments Growth",
+      "description": "Short risk description",
+      "category": "Market",
+      "impact": "high",
+      "likelihood": "high",
+      "trend": [2, 2, 3, 3, 3, 3],
+      "mitigation_status": "Monitoring"
+    }
+  ],
+  "categories": [
+    {"name": "Market", "percent": 30, "count": 5},
+    {"name": "Regulatory", "percent": 25, "count": 4}
+  ],
+  "heat_map": [
+    {"impact": "high", "likelihood": "high", "count": 3}
+  ],
+  "detailed_insights": [
+    {
+      "title": "Risk title",
+      "description": "Detailed paragraph",
+      "potential_impact": "high",
+      "time_horizon": "1-2 years",
+      "mitigation": "Action to mitigate",
+      "level": "high"
+    }
+  ],
+  "key_challenges": ["Global expansion while maintaining local compliance"]
+}
+Provide exactly 4 summary_counts, 6 risk_trend months, 8-12 top_risks, 4-5 categories,
+9 heat_map cells (all impact x likelihood combos), 6+ detailed_insights, 4-6 key_challenges.
+impact/likelihood/level: high | medium | low. mitigation_status: In Progress | Monitoring | Mitigated | Not Started.
+Use only risks supported by research. Do not fabricate specific lawsuits or fines."""

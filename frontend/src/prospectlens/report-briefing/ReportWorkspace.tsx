@@ -26,6 +26,7 @@ import { cn, formatDisplayTimestamp } from '@/lib/utils'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
+import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
 import {
   ReportNavContent,
   type ReportSessionMeta,
@@ -200,8 +201,17 @@ export function ReportWorkspace({
               />
             ) : null}
 
+            {activeSection === 'risks' ? (
+              <RisksChallengesDashboard
+                structured={structured}
+                session={session}
+                updatedAt={session.created_at}
+              />
+            ) : null}
+
             {activeSection !== 'company_overview' &&
             activeSection !== 'products' &&
+            activeSection !== 'risks' &&
             activeSection !== 'chat' ? (
               <ReportNavContent
                 navId={activeSection}

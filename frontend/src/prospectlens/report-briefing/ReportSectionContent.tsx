@@ -30,6 +30,7 @@ import {
 } from '@/types/structured-report'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
+import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
 
 export type { ReportSectionId, ReportNavId }
 
@@ -362,6 +363,16 @@ export function ReportNavContent({ navId, structured, session }: ReportNavConten
   if (navId === 'products' && session) {
     return (
       <ProductsServicesDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'risks' && session) {
+    return (
+      <RisksChallengesDashboard
         structured={structured}
         session={session}
         updatedAt={session.created_at}
