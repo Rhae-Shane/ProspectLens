@@ -3,22 +3,17 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.services.chat_tools import execute_web_search
-
-settings = get_settings()
-
-WEB_SEARCH_DESCRIPTION = (
-    "Search the web for current information about the company. "
-    "Use when the research report does not contain the answer, "
-    "the user asks for recent/live data, or the user enabled web search."
+from app.services.chat_tools import (
+    CHAT_TOOL_DEFINITIONS,
+    TOOL_DESCRIPTIONS,
+    TOOL_SCHEMAS,
+    ChatToolContext,
+    run_chat_tool,
 )
 
-
-class WebSearchInput(BaseModel):
-    query: str = Field(description="Specific web search query, e.g. 'Stripe annual revenue 2025'")
+settings = get_settings()
 
 
 def _estimate_cost(input_tokens: int, output_tokens: int) -> float:
@@ -33,11 +28,35 @@ def _usage_tokens(message: AIMessage) -> tuple[int, float]:
     return total, _estimate_cost(input_tokens, output_tokens)
 
 
+def _build_bound_tools(ctx: ChatToolContext) -> list[StructuredTool]:
+    bound: list[StructuredTool] = []
+
+    for tool_def in CHAT_TOOL_DEFINITIONS:
+        tool_id = tool_def["id"]
+        schema = TOOL_SCHEMAS[tool_id]
+        description = TOOL_DESCRIPTIONS[tool_id]
+
+        async def _invoke(tool_id: str = tool_id, **kwargs: Any) -> str:
+            formatted, _, _, _ = await run_chat_tool(tool_id, kwargs, ctx)
+            return formatted
+
+        bound.append(
+            StructuredTool.from_function(
+                coroutine=_invoke,
+                name=tool_id,
+                description=description,
+                args_schema=schema,
+            )
+        )
+
+    return bound
+
+
 async def run_chat_agent(
     *,
     system_prompt: str,
     user_prompt: str,
-    company_context: str,
+    tool_context: ChatToolContext,
     user_enabled_tools: set[str],
     allow_auto_tools: bool = True,
 ) -> tuple[str, list[dict[str, Any]], int, float]:
@@ -45,24 +64,7 @@ async def run_chat_agent(
     total_tokens = 0
     total_cost = 0.0
 
-    async def web_search(query: str) -> str:
-        formatted, usage, tokens, cost = await execute_web_search(query, company_context)
-        tools_used.append(usage)
-        nonlocal total_tokens, total_cost
-        total_tokens += tokens
-        total_cost += cost
-        return formatted
-
-    bound_tools: list[StructuredTool] = []
-    if allow_auto_tools or "web_search" in user_enabled_tools:
-        bound_tools.append(
-            StructuredTool.from_function(
-                coroutine=web_search,
-                name="web_search",
-                description=WEB_SEARCH_DESCRIPTION,
-                args_schema=WebSearchInput,
-            )
-        )
+    bound_tools = _build_bound_tools(tool_context) if allow_auto_tools else []
 
     model = ChatOpenAI(
         model=settings.openai_model,
@@ -73,10 +75,11 @@ async def run_chat_agent(
         model = model.bind_tools(bound_tools)
 
     enabled_note = ""
-    if "web_search" in user_enabled_tools:
+    if user_enabled_tools:
+        labels = ", ".join(sorted(user_enabled_tools))
         enabled_note = (
-            "\n\nThe user enabled the web_search tool for this message. "
-            "Use web_search when the report does not fully answer the question."
+            f"\n\nThe user enabled these tools for this message: {labels}. "
+            "Use them when helpful to answer the question."
         )
 
     messages: list[Any] = [
@@ -84,7 +87,7 @@ async def run_chat_agent(
         HumanMessage(content=user_prompt + enabled_note),
     ]
 
-    for _ in range(4):
+    for _ in range(6):
         response = await model.ainvoke(messages)
         if not isinstance(response, AIMessage):
             response = AIMessage(content=str(response))
@@ -111,19 +114,19 @@ async def run_chat_agent(
                 tool_args = getattr(tool_call, "args", None) or {}
                 tool_id = getattr(tool_call, "id", None) or tool_name
 
-            if tool_name == "web_search":
-                query = str(tool_args.get("query", "")).strip()
-                if not query:
-                    result_text = "Error: web_search requires a query."
-                else:
-                    result_text, usage, search_tokens, search_cost = await execute_web_search(
-                        query, company_context
-                    )
-                    tools_used.append(usage)
-                    total_tokens += search_tokens
-                    total_cost += search_cost
-            else:
-                result_text = f"Unknown tool: {tool_name}"
+            try:
+                result_text, usage, tool_tokens, tool_cost = await run_chat_tool(
+                    str(tool_name),
+                    tool_args,
+                    tool_context,
+                )
+                tools_used.append(usage)
+                total_tokens += tool_tokens
+                total_cost += tool_cost
+            except ValueError as exc:
+                result_text = f"Tool error: {exc}"
+            except Exception as exc:
+                result_text = f"Tool failed: {exc}"
 
             messages.append(ToolMessage(content=result_text, tool_call_id=tool_id))
 

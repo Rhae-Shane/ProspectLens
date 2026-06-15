@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, Loader2, Plus, Send, X } from 'lucide-react'
+import {
+  Building2,
+  Globe,
+  Link2,
+  Loader2,
+  Newspaper,
+  Plus,
+  Search,
+  Send,
+  Sparkles,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
 import { api } from '@/api/client'
@@ -10,22 +22,30 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { CHAT_TOOLS, mergeChatTools } from '@/lib/chat-tools'
 import { cn, formatDate } from '@/lib/utils'
-import type { ChatTool } from '@/types/report'
 
-const FALLBACK_CHAT_TOOLS: ChatTool[] = [
-  {
-    id: 'web_search',
-    label: 'Web Search',
-    description: 'Search the web for up-to-date company facts not in the report',
-    icon: 'globe',
-  },
-]
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  globe: Globe,
+  building: Building2,
+  newspaper: Newspaper,
+  search: Search,
+  sparkles: Sparkles,
+  link: Link2,
+}
 
 function toolIcon(icon: string) {
-  if (icon === 'globe') return Globe
-  return Globe
+  return TOOL_ICONS[icon] ?? Globe
 }
+
+const EXTERNAL_TOOLS = new Set([
+  'web_search',
+  'company_enrichment',
+  'recent_news',
+  'deep_research',
+  'scrape_website',
+])
 
 interface Props {
   sessionId: string
@@ -39,11 +59,13 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
   const [toolsOpen, setToolsOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data: availableTools = FALLBACK_CHAT_TOOLS } = useQuery({
-    queryKey: ['chat-tools'],
+  const { data: apiTools } = useQuery({
+    queryKey: ['chat-tools', 'v3'],
     queryFn: () => api.getChatTools(),
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000,
   })
+
+  const availableTools = useMemo(() => mergeChatTools(apiTools), [apiTools])
 
   const toolMap = useMemo(
     () => new Map(availableTools.map((tool) => [tool.id, tool])),
@@ -92,8 +114,8 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
         {isLoading && <p className="text-muted-foreground text-sm">Loading chat...</p>}
         {messages.length === 0 && !isLoading && (
           <p className="py-4 text-center text-muted-foreground text-sm">
-            Ask follow-up questions about the research report. The assistant can search the web when
-            the report does not have the answer.
+            Ask follow-up questions about the research report. The assistant can search the briefing,
+            enrich company data, fetch news, or search the web automatically.
           </p>
         )}
         {messages.map((msg) => {
@@ -161,7 +183,9 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
         {sendMutation.isPending && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Loader2 className="size-4 animate-spin" />
-            {selectedTools.includes('web_search') ? 'Searching the web...' : 'Thinking...'}
+            {selectedTools.some((tool) => EXTERNAL_TOOLS.has(tool))
+              ? 'Running tools...'
+              : 'Thinking...'}
           </div>
         )}
       </div>
@@ -200,36 +224,38 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
               <Plus className="size-4" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-3">
+          <PopoverContent align="start" className="w-80 p-3">
             <p className="mb-2 font-medium text-sm">Tools</p>
             <p className="mb-3 text-muted-foreground text-xs">
               Add tools for this message. The assistant can also use them automatically when needed.
             </p>
-            <div className="space-y-2">
-              {availableTools.map((tool) => {
-                const Icon = toolIcon(tool.icon)
-                const checked = selectedTools.includes(tool.id)
-                return (
-                  <div
-                    key={tool.id}
-                    className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/40"
-                  >
-                    <Checkbox
-                      id={`tool-${tool.id}`}
-                      checked={checked}
-                      onCheckedChange={() => toggleTool(tool.id)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <Label htmlFor={`tool-${tool.id}`} className="flex items-center gap-1.5 text-sm">
-                        <Icon className="size-3.5" />
-                        {tool.label}
-                      </Label>
-                      <p className="mt-0.5 text-muted-foreground text-xs">{tool.description}</p>
+            <ScrollArea className="h-72 pr-2">
+              <div className="space-y-2">
+                {availableTools.map((tool) => {
+                  const Icon = toolIcon(tool.icon)
+                  const checked = selectedTools.includes(tool.id)
+                  return (
+                    <div
+                      key={tool.id}
+                      className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/40"
+                    >
+                      <Checkbox
+                        id={`tool-${tool.id}`}
+                        checked={checked}
+                        onCheckedChange={() => toggleTool(tool.id)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <Label htmlFor={`tool-${tool.id}`} className="flex items-center gap-1.5 text-sm">
+                          <Icon className="size-3.5" />
+                          {tool.label}
+                        </Label>
+                        <p className="mt-0.5 text-muted-foreground text-xs">{tool.description}</p>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </ScrollArea>
           </PopoverContent>
         </Popover>
 

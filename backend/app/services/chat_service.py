@@ -7,21 +7,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.context_cache import context_cache
 from app.models import ChatMessage, WorkflowStatus
 from app.services.chat_agent import run_chat_agent
-from app.services.chat_tools import normalize_tool_ids
+from app.services.chat_tools import ChatToolContext, normalize_tool_ids
 from app.services.session_service import SessionService
 
 CHAT_SYSTEM = """You are a sales research assistant helping prepare for a business meeting.
 
-Use the research report as your primary source. When the user asks for information that is NOT in the report,
-or asks for current/recent figures (revenue, funding, headcount, valuation, etc.), call the web_search tool
-to find up-to-date information from the web before answering.
+You have tools to answer follow-up questions. Use them strategically:
+
+1. **search_report** — Check the briefing first when the answer may already exist.
+2. **company_enrichment** — For revenue, employees, funding, HQ, tech stack (prefer over generic web search).
+3. **recent_news** — For what happened lately, announcements, or news since the report.
+4. **web_search** — For current facts missing from the report and enrichment.
+5. **deep_research** — For complex multi-part research questions needing synthesis.
+6. **scrape_website** — To read a specific page (pricing, careers, docs); default to company website if no URL given.
 
 Guidelines:
-- Prefer facts from the report when they are present and sufficient.
-- Use web_search proactively when the report lacks the requested detail.
-- When web search returns data, synthesize a clear answer and mention sources.
-- If web search finds conflicting figures, note the range and cite sources.
-- Be concise and actionable for sales meeting prep."""
+- Prefer the report and report-native tools before paid external lookups when possible.
+- For revenue/headcount/funding questions, try search_report then company_enrichment, then web_search.
+- Synthesize tool results into concise, actionable answers for sales meeting prep.
+- Cite sources when using external tools."""
 
 
 class ChatService:
@@ -56,8 +60,17 @@ class ChatService:
 
         history = await ChatService.get_history(db, session_id)
         history_text = "\n".join(f"{m.role}: {m.content}" for m in history[-6:])
+        report_context = report_context or ""
+        report_content = session.report.content if session.report else {}
         company_context = f"Company: {session.company_name}\nWebsite: {session.website}"
         enabled_tools = normalize_tool_ids(tools)
+        tool_context = ChatToolContext(
+            company_name=session.company_name,
+            website=session.website,
+            company_context=company_context,
+            report_context=report_context,
+            report_content=report_content,
+        )
 
         user_prompt = f"""Research Report Context:
 {report_context}
@@ -73,7 +86,7 @@ User Question: {message}"""
         response_text, tools_used, tokens, cost = await run_chat_agent(
             system_prompt=CHAT_SYSTEM,
             user_prompt=user_prompt,
-            company_context=company_context,
+            tool_context=tool_context,
             user_enabled_tools=enabled_tools,
             allow_auto_tools=True,
         )
