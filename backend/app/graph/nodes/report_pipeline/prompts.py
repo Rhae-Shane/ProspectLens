@@ -24,3 +24,28 @@ OUTREACH_SYSTEM = """Write outreach strategy. Return ONLY valid JSON:
   "sequence": [{"day": int, "action": str, "angle": str}],
   "unknowns": [str]
 }"""
+
+COMPANY_OVERVIEW_SYSTEM = """You build a rich company overview dashboard for a sales briefing.
+Return ONLY valid JSON with this shape:
+{
+  "description": "2-3 sentence company summary",
+  "ceo": str,
+  "company_type": "Private" | "Public",
+  "latest_funding": str,
+  "key_metrics": [
+    {"label": str, "value": str, "change": "+22% YoY", "change_label": "YoY"}
+  ],
+  "commercial_trends": [
+    {"label": "Customer Growth", "value": "+25% YoY", "change": "+25% YoY", "trend": [40,45,50,55,60,65,70]}
+  ],
+  "commercial_summary": "one sentence synthesis",
+  "market_share": {"label": "Market Share (Online Payments)", "value": "16% Global Market Share", "percent": 16},
+  "competitors": ["PayPal", "Adyen"],
+  "industry_standing": ["Leader in developer experience"],
+  "growth_signals": [{"title": str, "detail": str}],
+  "recent_news": [{"title": str, "source": str, "date": "Mon DD, YYYY", "url": str}],
+  "strengths": ["tag1", "tag2"],
+  "challenges": ["tag1", "tag2"]
+}
+Provide exactly 6 key_metrics, 4 commercial_trends (each trend array 7 numbers), 4 growth_signals, 3 recent_news items.
+Use only facts from the research. Estimate trends directionally when exact history is unavailable."""

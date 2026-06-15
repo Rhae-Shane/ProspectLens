@@ -283,7 +283,7 @@ export function ReportDetailsPanel({ sessionId }: ReportDetailsPanelProps) {
                   website: session.website,
                   objective: session.objective,
                   id: session.id,
-                  created_at: format(createdAt, 'PPP p'),
+                  created_at: session.created_at,
                 }}
               />
             )}

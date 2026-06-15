@@ -22,15 +22,13 @@ import {
 } from '@/lib/structured-report-utils'
 import { cn } from '@/lib/utils'
 import {
-  COMPANY_OVERVIEW_SECTION_IDS,
   REPORT_NAV_ITEMS,
   REPORT_SECTIONS,
   type ReportNavId,
   type ReportSectionId,
   type StructuredReport,
 } from '@/types/structured-report'
-import { extractCompanyDomain } from '@/lib/company-logo'
-import { CompanyLogo } from '@/prospectlens/CompanyLogo'
+import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 
 export type { ReportSectionId, ReportNavId }
 
@@ -341,71 +339,8 @@ export interface ReportSessionMeta {
   created_at?: string
 }
 
-function ReportDetailsCards({ session }: { session: ReportSessionMeta }) {
-  const domain = extractCompanyDomain(session.website)
-
-  return (
-    <div className="space-y-4">
-      <SectionHeading number={0} title="Report Details" />
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Company</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <CompanyLogo name={session.company_name} website={session.website} size="lg" />
-              <div className="min-w-0">
-                <p className="font-medium text-sm">{session.company_name}</p>
-                <a
-                  href={session.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-0.5 inline-flex items-center gap-1 text-primary text-xs hover:underline"
-                >
-                  {domain ?? session.website}
-                  <ExternalLink className="size-3" />
-                </a>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        {session.id || session.created_at ? (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Report info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {session.id ? (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Session ID</span>
-                  <span className="truncate font-mono text-xs">{session.id}</span>
-                </div>
-              ) : null}
-              {session.created_at ? (
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Generated</span>
-                  <span className="text-right">{session.created_at}</span>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Research objective</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm leading-relaxed">{session.objective}</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 interface ReportNavContentProps {
-  navId: ReportNavId
+  navId: ReportNavId | ReportSectionId
   structured: StructuredReport
   session?: ReportSessionMeta
 }
@@ -413,27 +348,26 @@ interface ReportNavContentProps {
 export function ReportNavContent({ navId, structured, session }: ReportNavContentProps) {
   const navMeta = REPORT_NAV_ITEMS.find((item) => item.id === navId)
 
-  if (navId === 'company_overview') {
+  if (navId === 'company_overview' && session) {
     return (
-      <div className="space-y-8">
-        {navMeta ? (
-          <div className="border-b pb-4">
-            <div className="flex items-center gap-2">
-              <span className="grid size-6 place-items-center rounded-md bg-primary/10 font-medium text-primary text-xs">
-                {navMeta.number}
-              </span>
-              <h2 className="font-semibold text-lg tracking-tight">{navMeta.label}</h2>
-            </div>
-            <p className="mt-1 text-muted-foreground text-sm">{REPORT_NAV_DESCRIPTIONS.company_overview}</p>
-          </div>
-        ) : null}
-        {session ? <ReportDetailsCards session={session} /> : null}
-        {COMPANY_OVERVIEW_SECTION_IDS.map((sectionId) => (
-          <ReportSectionContent key={sectionId} sectionId={sectionId} structured={structured} />
-        ))}
-      </div>
+      <CompanyOverviewDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
     )
   }
 
-  return <ReportSectionContent sectionId={navId} structured={structured} headingNumber={navMeta?.number} headingTitle={navMeta?.label} />
+  const sectionMeta = REPORT_SECTIONS.find((section) => section.id === navId)
+  const headingNumber = navMeta?.number ?? sectionMeta?.number
+  const headingTitle = navMeta?.label ?? sectionMeta?.label
+
+  return (
+    <ReportSectionContent
+      sectionId={navId as ReportSectionId}
+      structured={structured}
+      headingNumber={headingNumber}
+      headingTitle={headingTitle}
+    />
+  )
 }

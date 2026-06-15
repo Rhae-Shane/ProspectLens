@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 
 import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
-import { ReportBriefingDashboard } from '@/prospectlens/ReportBriefingDashboard'
+import { ReportWorkspace } from '@/prospectlens/report-briefing/ReportWorkspace'
 
 export function ReportBriefingPage() {
   const { id } = useParams<{ id: string }>()
@@ -43,7 +43,7 @@ export function ReportBriefingPage() {
 
   return (
     <div data-content-padding="false" className="flex min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden">
-      <ReportBriefingDashboard
+      <ReportWorkspace
         report={session.report}
         session={{
           id: session.id,

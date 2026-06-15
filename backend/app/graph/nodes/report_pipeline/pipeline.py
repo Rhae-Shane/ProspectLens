@@ -15,7 +15,13 @@ from .extractors import (
     stakeholders_from_analysis,
     structured_to_legacy,
 )
-from .prompts import DISCOVERY_SYSTEM, OUTREACH_SYSTEM, SIGNALS_RISKS_SYSTEM, STAKEHOLDER_SYSTEM
+from .prompts import (
+    COMPANY_OVERVIEW_SYSTEM,
+    DISCOVERY_SYSTEM,
+    OUTREACH_SYSTEM,
+    SIGNALS_RISKS_SYSTEM,
+    STAKEHOLDER_SYSTEM,
+)
 
 
 def _parse_json_payload(result: Any) -> dict[str, Any]:
@@ -33,6 +39,22 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
 
     snapshot = extract_snapshot(state)
     node_outputs["report_snapshot"] = {"sections": ["company_snapshot", "commercial_profile"]}
+
+    research_snippet = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=8000)
+    overview_result, tokens, cost = await openai_client.complete_json(
+        COMPANY_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"Snapshot:\n{json.dumps(snapshot, indent=2)}\n\n"
+        f"Analysis:\n{json.dumps(analysis, indent=2)[:6000]}\n\n"
+        f"Research:\n{research_snippet}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    company_overview = _parse_json_payload(overview_result)
+    node_outputs["report_company_overview"] = {
+        "metrics": len(company_overview.get("key_metrics", [])),
+        "news": len(company_overview.get("recent_news", [])),
+    }
 
     products = extract_products(state)
     node_outputs["report_products"] = {
@@ -111,10 +133,20 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
             "severity": "critical" if int(trigger.get("severity", 3)) >= 4 else "high",
         }
 
+    if company_overview.get("description"):
+        snapshot["company_snapshot"]["description"] = company_overview.get("description")
+    if company_overview.get("ceo"):
+        snapshot["company_snapshot"]["ceo"] = company_overview.get("ceo")
+    if company_overview.get("company_type"):
+        snapshot["company_snapshot"]["company_type"] = company_overview.get("company_type")
+    if company_overview.get("latest_funding"):
+        snapshot["company_snapshot"]["latest_funding"] = company_overview.get("latest_funding")
+
     structured: dict[str, Any] = {
         "header": header,
         "company_snapshot": snapshot["company_snapshot"],
         "commercial_profile": snapshot["commercial_profile"],
+        "company_overview": company_overview,
         "products": products["products"],
         "target_customers": products["target_customers"],
         "stakeholders": stakeholders,
@@ -134,6 +166,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "sections": list(report.keys()),
         "pipeline_nodes": [
             "report_snapshot",
+            "report_company_overview",
             "report_products",
             "report_stakeholders",
             "report_signals_risks",

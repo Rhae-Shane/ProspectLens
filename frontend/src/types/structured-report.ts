@@ -22,6 +22,57 @@ export interface SnapshotField {
   valuation: string
   funding_round?: string
   open_roles?: string
+  ceo?: string
+  company_type?: string
+  latest_funding?: string
+  description?: string
+  website?: string
+}
+
+export interface KeyMetric {
+  label: string
+  value: string
+  change?: string
+  change_label?: string
+}
+
+export interface CommercialTrend {
+  label: string
+  value: string
+  change: string
+  trend: number[]
+}
+
+export interface RecentNewsItem {
+  title: string
+  source: string
+  date: string
+  url?: string
+}
+
+export interface GrowthSignalItem {
+  title: string
+  detail: string
+}
+
+export interface MarketShareInfo {
+  label: string
+  value: string
+  percent: number
+}
+
+export interface CompanyOverview {
+  description: string
+  key_metrics: KeyMetric[]
+  commercial_trends: CommercialTrend[]
+  commercial_summary?: string
+  market_share?: MarketShareInfo
+  competitors: string[]
+  industry_standing: string[]
+  growth_signals: GrowthSignalItem[]
+  recent_news: RecentNewsItem[]
+  strengths: string[]
+  challenges: string[]
 }
 
 export interface CommercialField {
@@ -99,6 +150,7 @@ export interface StructuredReport {
   header: ReportHeader
   company_snapshot: SnapshotField
   commercial_profile: CommercialField
+  company_overview?: CompanyOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]
@@ -147,3 +199,19 @@ export const REPORT_NAV_ITEMS = [
 ] as const
 
 export type ReportNavId = (typeof REPORT_NAV_ITEMS)[number]['id']
+
+/** Full sidebar sections for report workspace (matches briefing layout). */
+export const REPORT_WORKSPACE_SECTIONS = [
+  { id: 'company_overview', label: 'Company Overview' },
+  { id: 'products', label: 'Products & Services' },
+  { id: 'customers', label: 'Target Customers' },
+  { id: 'stakeholders', label: 'Stakeholders' },
+  { id: 'signals', label: 'Business Signals' },
+  { id: 'risks', label: 'Risks & Challenges' },
+  { id: 'discovery', label: 'Discovery Questions' },
+  { id: 'outreach', label: 'Outreach Strategy' },
+  { id: 'unknowns', label: 'Unknowns' },
+  { id: 'sources', label: 'Sources' },
+] as const
+
+export type ReportWorkspaceSectionId = (typeof REPORT_WORKSPACE_SECTIONS)[number]['id'] | 'chat'

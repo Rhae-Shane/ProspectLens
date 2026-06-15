@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
+import { format, isValid, parseISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -43,6 +44,22 @@ export function formatCurrency(
 
 export function formatDate(date: string) {
   return new Date(date).toLocaleString();
+}
+
+/** Format ISO or parseable date strings; return pre-formatted strings as-is. */
+export function formatDisplayTimestamp(
+  value?: string,
+  pattern = 'MMM d, yyyy · h:mm a'
+): string {
+  if (!value) return 'Recently'
+
+  const isoParsed = parseISO(value)
+  if (isValid(isoParsed)) return format(isoParsed, pattern)
+
+  const fallback = new Date(value)
+  if (isValid(fallback)) return format(fallback, pattern)
+
+  return value
 }
 
 export function formatCost(usd: number) {
