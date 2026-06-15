@@ -8,6 +8,7 @@ import { ReportViewer } from '@/prospectlens/ReportViewer'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
+import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
 import { providerColor, providerLabel } from '@/lib/source-utils'
 import { Button } from '@/components/ui/button'
@@ -103,7 +104,13 @@ export function SessionDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{session.company_name}</h1>
+          <CompanyIdentity
+            name={session.company_name}
+            website={session.website}
+            size="lg"
+            nameClassName="text-2xl font-bold tracking-tight"
+            className="items-center"
+          />
           <a
             href={session.website}
             target="_blank"

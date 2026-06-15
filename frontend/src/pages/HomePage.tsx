@@ -5,6 +5,7 @@ import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
+import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 
 export function HomePage() {
@@ -50,12 +51,13 @@ export function HomePage() {
             {data.items.map((session) => (
               <Link key={session.id} to={`/sessions/${session.id}`}>
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="font-medium">{session.company_name}</p>
-                      <p className="text-sm text-muted-foreground truncate max-w-md">
-                        {session.objective}
-                      </p>
+                  <CardContent className="flex items-center justify-between gap-4 py-4">
+                    <div className="min-w-0 flex-1">
+                      <CompanyIdentity
+                        name={session.company_name}
+                        website={session.website}
+                      />
+                      <p className="mt-2 truncate text-sm text-muted-foreground">{session.objective}</p>
                     </div>
                     <div className="text-right text-sm">
                       <SessionStatusBadge status={session.status} />

@@ -2,12 +2,13 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
-import { ArrowUpRight, Building2 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCost } from "@/lib/utils";
+import { CompanyIdentity } from "@/prospectlens/CompanyLogo";
 import { SessionStatusBadge } from "@/prospectlens/SessionStatusBadge";
 import type { Session } from "@/types/report";
 
@@ -34,15 +35,11 @@ export const sessionsColumns: ColumnDef<Session>[] = [
     accessorKey: "company_name",
     header: "Company",
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-muted">
-          <Building2 className="size-4 text-muted-foreground" />
-        </span>
-        <div className="min-w-0">
-          <div className="truncate font-medium text-sm leading-none">{row.original.company_name}</div>
-          <div className="mt-1 truncate text-muted-foreground text-xs leading-none">{row.original.website}</div>
-        </div>
-      </div>
+      <CompanyIdentity
+        name={row.original.company_name}
+        website={row.original.website}
+        showWebsite
+      />
     ),
     enableHiding: false,
   },

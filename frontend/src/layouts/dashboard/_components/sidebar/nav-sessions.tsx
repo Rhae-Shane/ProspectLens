@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Plus, Search } from 'lucide-react'
 
 import { api } from '@/api/client'
+import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,9 +67,14 @@ export function NavSessions() {
           )}
           {data?.items.map((session) => (
             <DropdownMenuItem key={session.id} asChild>
-              <Link to={`/sessions/${session.id}`} className="flex flex-col items-start gap-0.5">
-                <span className="font-medium">{session.company_name}</span>
-                <SessionStatusBadge status={session.status} className="text-[10px]" />
+              <Link to={`/sessions/${session.id}`} className="flex items-start gap-2">
+                <CompanyIdentity
+                  name={session.company_name}
+                  website={session.website}
+                  size="sm"
+                  nameClassName="text-sm"
+                />
+                <SessionStatusBadge status={session.status} className="ml-auto shrink-0 text-[10px]" />
               </Link>
             </DropdownMenuItem>
           ))}

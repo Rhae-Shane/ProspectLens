@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 
 export function NewSessionPage() {
   const navigate = useNavigate()
@@ -60,6 +61,16 @@ export function NewSessionPage() {
                 required
               />
             </div>
+            {(companyName.trim() || website.trim()) ? (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="mb-2 text-muted-foreground text-xs">Preview</p>
+                <CompanyIdentity
+                  name={companyName.trim() || 'Company'}
+                  website={website}
+                  showWebsite={Boolean(website.trim())}
+                />
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="objective">Research Objective</Label>
               <Textarea
