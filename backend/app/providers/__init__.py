@@ -138,6 +138,7 @@ class PerplexityClient:
 
         result = {
             "query": query,
+            "provider": "perplexity",
             "content": content,
             "sources": sources,
         }
@@ -149,6 +150,7 @@ class PerplexityClient:
         company = context.split("Company:")[-1].split("\n")[0].strip() if "Company:" in context else "the company"
         return {
             "query": query,
+            "provider": "perplexity",
             "content": (
                 f"Research findings for {company} regarding: {query}. "
                 f"This is simulated research data. Configure PERPLEXITY_API_KEY for live web research."
@@ -165,3 +167,7 @@ class PerplexityClient:
 
 openai_client = OpenAIClient()
 perplexity_client = PerplexityClient()
+
+from app.providers.tavily import tavily_client  # noqa: E402
+
+__all__ = ["openai_client", "perplexity_client", "tavily_client"]

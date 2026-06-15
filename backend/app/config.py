@@ -9,6 +9,9 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     perplexity_api_key: str = ""
+    tavily_api_key: str = ""
+    tavily_search_depth: str = "basic"
+    tavily_max_results: int = 5
     database_url: str = "postgresql+asyncpg://prospectlens:prospectlens@localhost:5432/prospectlens"
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"

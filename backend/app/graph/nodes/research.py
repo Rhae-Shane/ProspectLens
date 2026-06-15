@@ -2,9 +2,11 @@ import asyncio
 from typing import Any
 
 from app.cache.context_cache import context_cache
-from app.providers import perplexity_client
+from app.config import get_settings
+from app.providers import perplexity_client, tavily_client
 
 RESEARCH_CONTEXT = "Company: {company}\nWebsite: {website}\nObjective: {objective}"
+settings = get_settings()
 
 
 async def research_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -34,24 +36,63 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
 
     context = RESEARCH_CONTEXT.format(company=company, website=website, objective=objective)
 
-    async def run_query(query: str):
-        return await perplexity_client.research(query, context)
+    async def run_query(query: str) -> list[tuple[dict[str, Any], int, float]]:
+        tasks: list[tuple[str, Any]] = []
+        if settings.perplexity_api_key:
+            tasks.append(("perplexity", perplexity_client.research(query, context)))
+        if settings.tavily_api_key:
+            tasks.append(("tavily", tavily_client.search(query, context)))
 
-    results = await asyncio.gather(*[run_query(q) for q in queries])
+        if not tasks:
+            return [await perplexity_client.research(query, context)]
 
-    raw_research = []
+        gathered = await asyncio.gather(*(coro for _, coro in tasks), return_exceptions=True)
+        results: list[tuple[dict[str, Any], int, float]] = []
+        for (provider, _), outcome in zip(tasks, gathered, strict=True):
+            if isinstance(outcome, Exception):
+                results.append(
+                    (
+                        {
+                            "query": query,
+                            "provider": provider,
+                            "content": f"{provider} search failed: {outcome}",
+                            "sources": [],
+                        },
+                        0,
+                        0.0,
+                    )
+                )
+            else:
+                results.append(outcome)
+        return results
+
+    query_results = await asyncio.gather(*[run_query(q) for q in queries])
+
+    raw_research: list[dict[str, Any]] = []
     total_tokens = 0
     total_cost = 0.0
-    for result, tokens, cost in results:
-        raw_research.append(result)
-        total_tokens += tokens
-        total_cost += cost
+    for batch in query_results:
+        for result, tokens, cost in batch:
+            raw_research.append(result)
+            total_tokens += tokens
+            total_cost += cost
 
     if state.get("retry_count", 0) == 0:
         await context_cache.set_research(company, website, objective, raw_research)
 
+    providers_used = []
+    if settings.perplexity_api_key:
+        providers_used.append("perplexity")
+    if settings.tavily_api_key:
+        providers_used.append("tavily")
+
     node_outputs = dict(state.get("node_outputs", {}))
-    node_outputs["research"] = {"queries_run": len(queries), "cached": False}
+    node_outputs["research"] = {
+        "queries_run": len(queries),
+        "results_count": len(raw_research),
+        "providers": providers_used,
+        "cached": False,
+    }
 
     return {
         "raw_research": raw_research,
