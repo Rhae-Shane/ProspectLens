@@ -162,12 +162,12 @@ export function NavMain({ items }: NavMainProps) {
             <SidebarMenuItem className="flex items-center gap-2">
               <SidebarMenuButton
                 asChild
-                tooltip="Quick Create"
+                tooltip="New Research"
                 className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
               >
                 <Link to="/sessions/new">
                   <PlusCircleIcon />
-                  <span>Quick Create</span>
+                  <span>New Research</span>
                 </Link>
               </SidebarMenuButton>
               <Button

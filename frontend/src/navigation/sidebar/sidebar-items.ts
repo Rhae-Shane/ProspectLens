@@ -6,6 +6,7 @@ import {
   Forklift,
   Gauge,
   GraduationCap,
+  Home,
   Kanban,
   LayoutDashboard,
   ListTodo,
@@ -15,7 +16,6 @@ import {
   MessageSquare,
   PlusCircle,
   ReceiptText,
-  Search,
   ShoppingBag,
   SquareArrowUpRight,
   Users,
@@ -52,19 +52,19 @@ export const sidebarItems: NavGroup[] = [
     label: "ProspectLens",
     items: [
       {
-        title: "Overview",
+        title: "Research Hub",
         url: "/home",
-        icon: Search,
-      },
-      {
-        title: "Research Sessions",
-        url: "/sessions",
-        icon: LayoutDashboard,
+        icon: Home,
       },
       {
         title: "New Research",
         url: "/sessions/new",
         icon: PlusCircle,
+      },
+      {
+        title: "Research Sessions",
+        url: "/sessions",
+        icon: LayoutDashboard,
       },
     ],
   },
