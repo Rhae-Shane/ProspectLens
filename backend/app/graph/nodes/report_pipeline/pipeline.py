@@ -4,7 +4,7 @@ from typing import Any
 
 from app.graph.qc_utils import unknowns_from_coverage
 from app.graph.research_context import serialize_research_for_llm
-from app.providers import openai_client
+from app.providers import apollo_client, openai_client
 from app.schemas import normalize_report_content
 
 from app.config import get_settings
@@ -25,12 +25,17 @@ from .prompts import (
     BUSINESS_SIGNALS_SYSTEM,
     COMPANY_OVERVIEW_SYSTEM,
     DISCOVERY_SYSTEM,
+    DISCOVERY_QUESTIONS_OVERVIEW_SYSTEM,
     OUTREACH_SYSTEM,
+    OUTREACH_OVERVIEW_SYSTEM,
     PRODUCTS_SERVICES_SYSTEM,
     RISKS_CHALLENGES_SYSTEM,
     SIGNALS_RISKS_SYSTEM,
     STAKEHOLDER_SYSTEM,
     STAKEHOLDERS_OVERVIEW_SYSTEM,
+    TARGET_CUSTOMERS_SYSTEM,
+    UNKNOWNS_OVERVIEW_SYSTEM,
+    SOURCES_OVERVIEW_SYSTEM,
 )
 
 
@@ -215,7 +220,37 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "scraped_chars": len(product_research),
     }
 
-    research_snippet = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=6000)
+    target_customers_result, tokens, cost = await openai_client.complete_json(
+        TARGET_CUSTOMERS_SYSTEM,
+        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"Existing customer segments:\n{json.dumps(products.get('target_customers', []), indent=2)}\n\n"
+        f"Commercial profile:\n{json.dumps(snapshot.get('commercial_profile', {}), indent=2)}\n\n"
+        f"Products:\n{json.dumps(products.get('products', [])[:6], indent=2)}\n\n"
+        f"Analysis target_customers:\n{str(analysis.get('target_customers', '') or '')[:3000]}\n\n"
+        f"Research:\n{research_snippet[:5000]}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    target_customers_overview = _parse_json_payload(target_customers_result)
+
+    overview_segments = target_customers_overview.get("segments") or []
+    if overview_segments:
+        products["target_customers"] = [
+            {
+                "segment": str(item.get("name", "Segment"))[:80],
+                "detail": str(item.get("description", ""))[:500],
+                "named_customers": [str(c) for c in (item.get("example_customers") or [])[:6]],
+            }
+            for item in overview_segments[:6]
+            if isinstance(item, dict)
+        ]
+
+    node_outputs["report_target_customers"] = {
+        "segments": len(overview_segments),
+        "industries": len(target_customers_overview.get("industry_distribution", [])),
+        "regions": len(target_customers_overview.get("geographic_regions", [])),
+    }
+
     people_seed = json.dumps(analysis.get("key_people", []), indent=2)[:3000]
 
     stakeholder_research = extract_stakeholder_research(state)
@@ -327,35 +362,158 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     }
 
     discovery_result, tokens, cost = await openai_client.complete_json(
-        DISCOVERY_SYSTEM,
-        f"Company: {state['company_name']}\nSignals:\n{json.dumps(signals, indent=2)}\n"
-        f"Risks:\n{json.dumps(risks, indent=2)}\n"
-        f"Stakeholders:\n{json.dumps(stakeholders[:3], indent=2)}",
+        DISCOVERY_QUESTIONS_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\n"
+        f"Signals:\n{json.dumps(signals, indent=2)}\n\n"
+        f"Risks:\n{json.dumps(risks, indent=2)}\n\n"
+        f"Stakeholders:\n{json.dumps(stakeholders[:5], indent=2)}\n\n"
+        f"Products:\n{json.dumps(products.get('products', [])[:6], indent=2)}\n\n"
+        f"Business signals overview:\n{json.dumps(business_signals.get('key_signals', [])[:8], indent=2)}\n\n"
+        f"Research:\n{research_snippet[:4000]}",
     )
     total_tokens += tokens
     total_cost += cost
-    discovery_questions = _parse_json_payload(discovery_result).get("discovery_questions") or []
-    node_outputs["report_discovery"] = {"count": len(discovery_questions)}
+    discovery_questions_overview = _parse_json_payload(discovery_result)
+
+    overview_questions = discovery_questions_overview.get("questions") or []
+    discovery_questions = [
+        {
+            "question": str(item.get("question", ""))[:500],
+            "signal_source": str(item.get("signal_source", item.get("rationale", "")))[:300],
+            "targets": str(item.get("targets", item.get("category", "")))[:120],
+        }
+        for item in overview_questions
+        if isinstance(item, dict) and str(item.get("question", "")).strip()
+    ]
+
+    node_outputs["report_discovery"] = {
+        "count": len(discovery_questions),
+        "high_priority": len([q for q in overview_questions if str(q.get("priority", "")).lower() == "high"]),
+        "categories": len(discovery_questions_overview.get("categories", [])),
+    }
 
     outreach_result, tokens, cost = await openai_client.complete_json(
-        OUTREACH_SYSTEM,
-        f"Company: {state['company_name']}\nStakeholders:\n{json.dumps(stakeholders[:3], indent=2)}\n"
-        f"Top signals:\n{json.dumps(signals[:3], indent=2)}\n"
-        f"Discovery:\n{json.dumps(discovery_questions[:4], indent=2)}",
+        OUTREACH_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\n"
+        f"Stakeholders:\n{json.dumps(stakeholders[:6], indent=2)}\n\n"
+        f"Top signals:\n{json.dumps(signals[:6], indent=2)}\n\n"
+        f"Discovery questions:\n{json.dumps(discovery_questions[:6], indent=2)}\n\n"
+        f"Target customers:\n{json.dumps(products.get('target_customers', [])[:4], indent=2)}\n\n"
+        f"Research:\n{research_snippet[:4000]}",
     )
     total_tokens += tokens
     total_cost += cost
     outreach_payload = _parse_json_payload(outreach_result)
-    outreach = {k: v for k, v in outreach_payload.items() if k != "unknowns"}
-    outreach_unknowns = outreach_payload.get("unknowns") or []
-    node_outputs["report_outreach"] = {"sequence_steps": len(outreach.get("sequence", []))}
+    outreach_unknowns = outreach_payload.pop("unknowns", None) or []
+    outreach_overview = {k: v for k, v in outreach_payload.items() if k != "unknowns"}
 
-    sources = extract_sources(state)
-    node_outputs["report_sources"] = {"count": len(sources)}
+    strategies = outreach_overview.get("strategies") or []
+    personas = outreach_overview.get("target_personas") or []
+    themes = outreach_overview.get("messaging_themes") or []
+    channels = outreach_overview.get("recommended_channels") or []
+
+    primary_strategy = strategies[0] if strategies and isinstance(strategies[0], dict) else {}
+    primary_persona = personas[0] if personas and isinstance(personas[0], dict) else {}
+    primary_theme = themes[0] if themes and isinstance(themes[0], dict) else {}
+    primary_channel = channels[0] if channels and isinstance(channels[0], dict) else {}
+
+    strategy_channels = primary_strategy.get("primary_channels") or []
+    outreach = {
+        "channel": (
+            ", ".join(str(c) for c in strategy_channels[:2])
+            or str(primary_channel.get("name", "Email"))
+        )[:120],
+        "primary_contact": str(primary_persona.get("persona", ""))[:120],
+        "hook": str(primary_theme.get("description", primary_strategy.get("description", "")))[:500],
+        "avoid": [],
+        "sequence": [
+            {
+                "day": index + 1,
+                "action": str(item.get("name", "Outreach step"))[:200],
+                "angle": str(item.get("description", ""))[:300],
+            }
+            for index, item in enumerate(strategies[:4])
+            if isinstance(item, dict)
+        ],
+    }
+
+    node_outputs["report_outreach"] = {
+        "strategies": len(strategies),
+        "personas": len(personas),
+        "channels": len(channels),
+        "impact_score": outreach_overview.get("expected_impact", {}).get("score"),
+    }
 
     qc = state.get("node_outputs", {}).get("quality_check", {})
     qc_unknowns = unknowns_from_coverage(qc.get("section_coverage", {}))
-    unknowns = list(dict.fromkeys([*qc_unknowns, *[str(u) for u in outreach_unknowns if u]]))[:8]
+
+    unknowns_result, tokens, cost = await openai_client.complete_json(
+        UNKNOWNS_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\n"
+        f"QC section coverage:\n{json.dumps(qc.get('section_coverage', {}), indent=2)}\n\n"
+        f"QC suggested unknowns:\n{json.dumps(qc_unknowns, indent=2)}\n\n"
+        f"Outreach unknowns:\n{json.dumps(outreach_unknowns, indent=2)}\n\n"
+        f"Risks:\n{json.dumps(risks[:6], indent=2)}\n\n"
+        f"Signals:\n{json.dumps(signals[:6], indent=2)}\n\n"
+        f"Discovery gaps:\n{json.dumps(discovery_questions[:4], indent=2)}\n\n"
+        f"Research:\n{research_snippet[:4000]}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    unknowns_overview = _parse_json_payload(unknowns_result)
+
+    overview_items = unknowns_overview.get("unknown_items") or []
+    unknown_texts = [
+        str(item.get("unknown", "")).strip()
+        for item in overview_items
+        if isinstance(item, dict) and str(item.get("unknown", "")).strip()
+    ]
+    unknowns = list(
+        dict.fromkeys([*unknown_texts, *qc_unknowns, *[str(u) for u in outreach_unknowns if u]])
+    )[:24]
+
+    node_outputs["report_unknowns"] = {
+        "count": len(unknowns),
+        "high_impact": len(
+            [item for item in overview_items if str(item.get("impact", "")).lower() == "high"]
+        ),
+        "categories": len(unknowns_overview.get("categories", [])),
+    }
+
+    raw_sources = extract_sources(state)
+    sources_result, tokens, cost = await openai_client.complete_json(
+        SOURCES_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"Raw sources ({len(raw_sources)}):\n{json.dumps(raw_sources, indent=2)}\n\n"
+        f"Research providers:\n{json.dumps([item.get('provider') for item in state.get('raw_research', [])], indent=2)}\n\n"
+        f"QC source count: {qc.get('source_count', len(raw_sources))}\n\n"
+        f"Company news from overview:\n{json.dumps(company_overview.get('recent_news', [])[:5], indent=2)}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    sources_overview = _parse_json_payload(sources_result)
+
+    overview_source_list = sources_overview.get("sources") or []
+    if overview_source_list:
+        sources = [
+            {
+                "title": str(item.get("title", ""))[:200],
+                "url": str(item.get("url", ""))[:500],
+                "snippet": str(item.get("snippet", ""))[:300],
+            }
+            for item in overview_source_list
+            if isinstance(item, dict) and str(item.get("url", "")).strip()
+        ]
+    else:
+        sources = raw_sources
+
+    node_outputs["report_sources"] = {
+        "count": len(sources),
+        "types": len(sources_overview.get("source_type_mix", [])),
+        "primary": sources_overview.get("summary_counts", [{}])[1].get("value")
+        if sources_overview.get("summary_counts")
+        else 0,
+    }
 
     header = snapshot.copy()
     header.pop("company_snapshot", None)
@@ -382,6 +540,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "commercial_profile": snapshot["commercial_profile"],
         "company_overview": company_overview,
         "products_services": products_services,
+        "target_customers_overview": target_customers_overview,
         "products": products["products"],
         "target_customers": products["target_customers"],
         "stakeholders": stakeholders,
@@ -390,9 +549,13 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "business_signals": business_signals,
         "risks": risks,
         "risks_challenges": risks_challenges,
+        "discovery_questions_overview": discovery_questions_overview,
         "discovery_questions": discovery_questions,
+        "outreach_overview": outreach_overview,
         "outreach": outreach,
+        "unknowns_overview": unknowns_overview,
         "unknowns": unknowns,
+        "sources_overview": sources_overview,
         "sources": sources,
     }
 
@@ -406,6 +569,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
             "report_snapshot",
             "report_company_overview",
             "report_products_services",
+            "report_target_customers",
             "report_products",
             "report_stakeholders",
             "report_stakeholders_overview",
@@ -413,8 +577,13 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
             "report_business_signals",
             "report_risks_challenges",
             "report_discovery",
+            "report_discovery_overview",
             "report_outreach",
+            "report_outreach_overview",
+            "report_unknowns",
+            "report_unknowns_overview",
             "report_sources",
+            "report_sources_overview",
         ],
         "qc_unknowns_merged": len(qc_unknowns),
     }

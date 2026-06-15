@@ -11,9 +11,48 @@ Return ONLY valid JSON:
 }
 Max 6 signals, max 4 risks. Every signal needs a specific date."""
 
-DISCOVERY_SYSTEM = """Generate 7 discovery questions for a sales call.
+DISCOVERY_SYSTEM = """Generate discovery questions for a sales call.
 Return ONLY valid JSON: {"discovery_questions": [{"question": str, "signal_source": str, "targets": str}]}
 Each question must reference a specific signal, date, or person. Open-ended only."""
+
+DISCOVERY_QUESTIONS_OVERVIEW_SYSTEM = """You build a rich Discovery Questions dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Total Questions", "value": 0, "hint": "Across all categories"},
+    {"label": "High Priority", "value": 0, "hint": "Critical to validate"},
+    {"label": "Medium Priority", "value": 0, "hint": "Important to explore"},
+    {"label": "Low Priority", "value": 0, "hint": "Good to know"}
+  ],
+  "priority_mix": [
+    {"name": "High Priority", "priority": "high", "count": 0, "percent": 0},
+    {"name": "Medium Priority", "priority": "medium", "count": 0, "percent": 0},
+    {"name": "Low Priority", "priority": "low", "count": 0, "percent": 0}
+  ],
+  "categories": [
+    {"name": "Strategy", "count": 0, "percent": 0},
+    {"name": "Product", "count": 0, "percent": 0}
+  ],
+  "questions": [
+    {
+      "question": "Open-ended discovery question tied to a specific signal or stakeholder",
+      "category": "Strategy",
+      "priority": "high",
+      "rationale": "Why this question matters for the sales conversation",
+      "potential_impact": "high",
+      "signal_source": "Specific signal, risk, or research finding referenced",
+      "targets": "Role or topic area"
+    }
+  ]
+}
+CRITICAL RULES:
+- Base every question on provided signals, risks, stakeholders, products, or research — never generic filler.
+- category must be one of: Strategy, Product, Market, Operations, Financial, Partnerships.
+- priority: high | medium | low. potential_impact: high | medium | low.
+- Provide 18-24 questions when evidence supports it; fewer only if research is thin.
+- summary_counts values, priority_mix counts/percents, and categories MUST match the questions array.
+- Each question must reference a concrete signal_source from the provided context.
+- Open-ended questions only — no yes/no questions."""
 
 OUTREACH_SYSTEM = """Write outreach strategy. Return ONLY valid JSON:
 {
@@ -24,6 +63,168 @@ OUTREACH_SYSTEM = """Write outreach strategy. Return ONLY valid JSON:
   "sequence": [{"day": int, "action": str, "angle": str}],
   "unknowns": [str]
 }"""
+
+OUTREACH_OVERVIEW_SYSTEM = """You build a rich Outreach Strategies dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Outreach Strategies Recommended", "value": 0, "hint": "Tailored approaches"},
+    {"label": "Target Personas to Engage", "value": 0, "hint": "Key stakeholder types"},
+    {"label": "Primary Channels", "value": 0, "hint": "Channels to leverage"},
+    {"label": "Overall Effectiveness Potential", "value": "High", "hint": "Based on reach and relevance"}
+  ],
+  "expected_impact": {
+    "score": 8.5,
+    "max_score": 10,
+    "label": "High Impact",
+    "description": "Based on reach, relevance, and timing"
+  },
+  "strategy_mix": [
+    {"name": "Direct Outreach", "percent": 30},
+    {"name": "Event & Community", "percent": 20}
+  ],
+  "strategies": [
+    {
+      "name": "Direct Outreach",
+      "description": "1-2 sentence approach description tied to research",
+      "best_for": "Enterprise decision-makers",
+      "primary_channels": ["LinkedIn", "Email", "Phone"],
+      "effectiveness": "high",
+      "effectiveness_score": 5,
+      "time_to_impact": "1-3 months"
+    }
+  ],
+  "recommended_channels": [
+    {"name": "LinkedIn", "impact": "high", "score": 90},
+    {"name": "Email Outreach", "impact": "high", "score": 85}
+  ],
+  "outreach_timing": [
+    {"day": "Tuesday", "time": "10AM", "quality": "best"},
+    {"day": "Wednesday", "time": "2PM", "quality": "good"}
+  ],
+  "target_personas": [
+    {
+      "persona": "CTO / VP Engineering",
+      "role": "Technology Leader",
+      "goal_interest": "Specific goal from research",
+      "preferred_channels": ["LinkedIn", "Email"]
+    }
+  ],
+  "messaging_themes": [
+    {"title": "Theme title", "description": "1-2 sentences tied to company signals"}
+  ],
+  "messaging_tips": ["Actionable tip based on stakeholder context"],
+  "unknowns": ["Gap to validate before outreach"]
+}
+CRITICAL RULES:
+- Base strategies, personas, channels, and themes on provided stakeholders, signals, discovery questions, and research.
+- NEVER invent personas or channels without supporting evidence.
+- effectiveness: high | medium | low. impact: high | medium | low. quality: best | good | okay.
+- Provide 5-6 strategies, 4-6 recommended_channels, 4-5 target_personas, 3-4 messaging_themes when evidence supports it.
+- strategy_mix percents should sum ~100 and align with strategies provided.
+- summary_counts values MUST match actual array lengths where numeric.
+- day: Monday|Tuesday|Wednesday|Thursday|Friday. time: 9AM|11AM|1PM|3PM|5PM|7PM."""
+
+UNKNOWNS_OVERVIEW_SYSTEM = """You build a rich Unknowns dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Total Unknowns", "value": 0, "hint": "Information gaps identified"},
+    {"label": "High Impact", "value": 0, "hint": "Critical to strategy"},
+    {"label": "Medium Impact", "value": 0, "hint": "Important to clarify"},
+    {"label": "Low Impact", "value": 0, "hint": "Nice to know"}
+  ],
+  "impact_mix": [
+    {"name": "High Impact", "impact": "high", "count": 0, "percent": 0},
+    {"name": "Medium Impact", "impact": "medium", "count": 0, "percent": 0},
+    {"name": "Low Impact", "impact": "low", "count": 0, "percent": 0}
+  ],
+  "categories": [
+    {"name": "Strategy", "count": 0, "percent": 0},
+    {"name": "Market", "count": 0, "percent": 0}
+  ],
+  "unknown_items": [
+    {
+      "unknown": "Specific information gap or unanswered question from research",
+      "category": "Strategy",
+      "impact": "high",
+      "why_it_matters": "Why this gap matters for decision-making",
+      "potential_impact": "high",
+      "time_horizon": "short-term"
+    }
+  ],
+  "time_horizon_mix": [
+    {"name": "Short-term (0-12 months)", "horizon": "short-term", "count": 0, "percent": 0},
+    {"name": "Mid-term (1-3 years)", "horizon": "mid-term", "count": 0, "percent": 0},
+    {"name": "Long-term (3+ years)", "horizon": "long-term", "count": 0, "percent": 0}
+  ],
+  "learning_objectives": [
+    {"title": "Validate Assumptions", "description": "What assumptions need testing based on gaps"}
+  ],
+  "resolution_strategies": [
+    {"title": "Stakeholder Outreach", "description": "How to resolve gaps via stakeholder engagement"}
+  ]
+}
+CRITICAL RULES:
+- Base unknowns on QC coverage gaps, research limitations, risks, and genuine information gaps — never invent filler.
+- category: Strategy | Market | Product | Financial | Operations | Partnerships.
+- impact and potential_impact: high | medium | low. time_horizon: short-term | mid-term | long-term.
+- Provide 12-18 unknown_items when evidence supports it; fewer only if research is comprehensive.
+- summary_counts, impact_mix, categories, and time_horizon_mix MUST match unknown_items array.
+- Incorporate provided QC gaps and outreach unknowns as unknown_items when relevant.
+- learning_objectives: 4 items. resolution_strategies: 4-5 items tied to how gaps can be closed."""
+
+SOURCES_OVERVIEW_SYSTEM = """You build a rich Sources dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Total Sources", "value": 0, "hint": "Across all categories"},
+    {"label": "Primary Sources", "value": 0, "hint": "Direct and official"},
+    {"label": "Secondary Sources", "value": 0, "hint": "Analysis and coverage"},
+    {"label": "Categories", "value": 0, "hint": "Source categories"},
+    {"label": "Avg. Reliability", "value": "4.5 / 5", "hint": "Across all sources"}
+  ],
+  "source_type_mix": [
+    {"name": "News & Media", "count": 0, "percent": 0},
+    {"name": "Company Documents", "count": 0, "percent": 0}
+  ],
+  "sources": [
+    {
+      "title": "Source title from provided raw sources",
+      "type": "Company Documents",
+      "category": "Financial",
+      "reliability": 5,
+      "accessed_on": "Jun 10, 2026",
+      "url": "https://example.com",
+      "snippet": "optional excerpt",
+      "is_primary": true
+    }
+  ],
+  "category_breakdown": [
+    {"name": "News & Media", "count": 0}
+  ],
+  "reliability_breakdown": [
+    {"stars": 5, "label": "Very High", "count": 0, "percent": 0},
+    {"stars": 4, "label": "High", "count": 0, "percent": 0},
+    {"stars": 3, "label": "Medium", "count": 0, "percent": 0},
+    {"stars": 2, "label": "Low", "count": 0, "percent": 0},
+    {"stars": 1, "label": "Very Low", "count": 0, "percent": 0}
+  ],
+  "highlights": [
+    {"title": "Diverse & Credible", "description": "Insight about source diversity from actual data"}
+  ],
+  "recent_sources": []
+}
+CRITICAL RULES:
+- Use ONLY sources from the provided raw_sources list — never invent URLs or titles.
+- type: News & Media | Company Documents | Reports & Research | Websites | Social Media.
+- category: Financial | Company | News | Industry Research | Product | Stakeholders | Other.
+- reliability: integer 1-5. is_primary: true for official company/regulatory/filing sources.
+- Classify each raw source; include ALL provided sources in the sources array when possible.
+- summary_counts, source_type_mix, category_breakdown, and reliability_breakdown MUST match sources array.
+- recent_sources: 3-5 most recent by accessed_on from classified sources.
+- highlights: 4 computed insights (diversity, recency, reliability, categorization) based on actual counts.
+- accessed_on: use today's date or "Recent" when exact date unknown."""
 
 COMPANY_OVERVIEW_SYSTEM = """You build a rich company overview dashboard for a sales briefing.
 Return ONLY valid JSON with this shape:
@@ -87,6 +288,51 @@ Use scraped product pages, website content, and research. Return ONLY valid JSON
 Provide exactly 4 portfolio_metrics, 4-5 categories (percents sum ~100), 6-8 core_products (each with 3 features),
 and 4-6 additional_capabilities. category_color: core | risk | analytics | financial | compliance | default.
 Use only products found in research/scraped pages. Do not invent product names unrelated to the company."""
+
+TARGET_CUSTOMERS_SYSTEM = """You build a rich Target Customers dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_metrics": [
+    {"label": "Businesses Worldwide", "value": "4M+", "hint": "Active business customers"},
+    {"label": "Countries Supported", "value": "135+", "hint": "Global reach"},
+    {"label": "End Users Served", "value": "Millions", "hint": "Through customer platforms"},
+    {"label": "Enterprise Customers", "value": "30%+", "hint": "Large businesses"}
+  ],
+  "business_size_mix": [
+    {"name": "Small Businesses", "range": "1-50 employees", "percent": 60},
+    {"name": "Mid-Market", "range": "51-500 employees", "percent": 25},
+    {"name": "Large Enterprises", "range": "500+ employees", "percent": 15}
+  ],
+  "segments": [
+    {
+      "name": "E-commerce & Retail",
+      "description": "1-2 sentence segment description from research",
+      "key_needs": ["need 1", "need 2", "need 3", "need 4"],
+      "example_customers": ["Company A", "Company B", "Company C"]
+    }
+  ],
+  "industry_distribution": [
+    {"name": "Technology", "percent": 25},
+    {"name": "Retail & E-commerce", "percent": 20}
+  ],
+  "industry_callout": {
+    "title": "Diverse Customer Base",
+    "text": "1-2 sentences about industry concentration from research"
+  },
+  "geographic_regions": [
+    {"name": "North America", "percent": 40},
+    {"name": "Europe", "percent": 30}
+  ],
+  "success_summary": "2-3 sentence paragraph on customer breadth and why they choose this company"
+}
+CRITICAL RULES:
+- Use ONLY customer segments, industries, geographies, and named customers found in research.
+- NEVER invent customer names, percentages, or segments without supporting evidence.
+- If data is unavailable for a section, return an empty array [] (or empty string for success_summary).
+- Provide up to 4 summary_metrics, 3 business_size_mix items (percents should sum ~100 when all present),
+  4-5 segments (each with 3-4 key_needs and 2-4 example_customers only if named in research),
+  6-8 industry_distribution items, 4-5 geographic_regions, and success_summary when evidence exists.
+- example_customers must be real company names cited in research, not generic placeholders."""
 
 RISKS_CHALLENGES_SYSTEM = """You build a rich Risks & Challenges dashboard for a sales briefing.
 Return ONLY valid JSON:

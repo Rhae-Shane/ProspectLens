@@ -1,9 +1,13 @@
+import { inferSourceCategory } from '@/lib/source-utils'
 import type {
   BusinessSignalsOverview,
   BusinessSignal,
   CompanyOverview,
   CoreProduct,
   DiscoveryQuestion,
+  DiscoveryQuestionsOverview,
+  DiscoveryPriority,
+  OutreachOverview,
   ProductsServicesOverview,
   ReportContentWithStructured,
   ReportRisk,
@@ -14,6 +18,10 @@ import type {
   Stakeholder,
   StakeholdersOverview,
   StructuredReport,
+  TargetCustomersOverview,
+  UnknownImpact,
+  UnknownsOverview,
+  SourcesOverview,
 } from '@/types/structured-report'
 
 function parseMarkdownFields(text: string): Record<string, string> {
@@ -518,6 +526,410 @@ export function buildBusinessSignals(structured: StructuredReport): BusinessSign
   }
 }
 
+export function buildTargetCustomersOverview(structured: StructuredReport): TargetCustomersOverview {
+  if (structured.target_customers_overview) {
+    return structured.target_customers_overview
+  }
+
+  const commercial = structured.commercial_profile
+  const snap = structured.company_snapshot
+  const segments = structured.target_customers
+
+  const summaryMetrics: TargetCustomersOverview['summary_metrics'] = []
+  if (commercial.customers?.trim()) {
+    summaryMetrics.push({ label: 'Customers', value: commercial.customers })
+  }
+  if (commercial.geographic_presence?.trim()) {
+    summaryMetrics.push({
+      label: 'Geographic Reach',
+      value: commercial.geographic_presence,
+    })
+  }
+  if (snap.employees?.trim()) {
+    summaryMetrics.push({ label: 'Team Scale', value: snap.employees, hint: 'Company size proxy' })
+  }
+  if (commercial.enterprise_min_contract?.trim()) {
+    summaryMetrics.push({
+      label: 'Enterprise Focus',
+      value: commercial.enterprise_min_contract,
+    })
+  }
+
+  return {
+    summary_metrics: summaryMetrics,
+    business_size_mix: [],
+    segments: segments.map((segment) => ({
+      name: segment.segment,
+      description: segment.detail,
+      key_needs: [],
+      example_customers: segment.named_customers ?? [],
+    })),
+    industry_distribution: [],
+    geographic_regions: [],
+    success_summary: segments.length
+      ? `${structured.header.company_name} serves ${segments.map((s) => s.segment).join(', ')}.`
+      : '',
+  }
+}
+
+export function buildOutreachOverview(structured: StructuredReport): OutreachOverview {
+  if (structured.outreach_overview) {
+    return structured.outreach_overview
+  }
+
+  const legacy = structured.outreach
+  const stakeholders = structured.stakeholders ?? []
+  const strategies: OutreachOverview['strategies'] = legacy.hook
+    ? [
+        {
+          name: 'Direct Outreach',
+          description: legacy.hook,
+          best_for: legacy.primary_contact ?? 'Key stakeholders',
+          primary_channels: legacy.channel ? legacy.channel.split(',').map((c) => c.trim()) : ['Email'],
+          effectiveness: 'medium',
+          effectiveness_score: 3,
+          time_to_impact: '1-3 months',
+        },
+      ]
+    : []
+
+  const personas: OutreachOverview['target_personas'] = stakeholders.slice(0, 4).map((person) => ({
+    persona: person.name,
+    role: person.title,
+    goal_interest: person.why_matters,
+    preferred_channels: ['Email', 'LinkedIn'],
+  }))
+
+  return {
+    summary_counts: [
+      { label: 'Outreach Strategies Recommended', value: strategies.length, hint: 'Tailored approaches' },
+      { label: 'Target Personas to Engage', value: personas.length, hint: 'Key stakeholder types' },
+      {
+        label: 'Primary Channels',
+        value: strategies[0]?.primary_channels.length ?? 0,
+        hint: 'Channels to leverage',
+      },
+      { label: 'Overall Effectiveness Potential', value: 'Medium', hint: 'Based on reach and relevance' },
+    ],
+    expected_impact: {
+      score: strategies.length ? 7.0 : 0,
+      max_score: 10,
+      label: strategies.length ? 'Moderate Impact' : 'Pending',
+      description: 'Based on reach, relevance, and timing',
+    },
+    strategy_mix: strategies.length
+      ? [{ name: strategies[0].name, percent: 100 }]
+      : [],
+    strategies,
+    recommended_channels: (strategies[0]?.primary_channels ?? []).map((name) => ({
+      name,
+      impact: 'medium' as const,
+      score: 60,
+    })),
+    outreach_timing: [],
+    target_personas: personas,
+    messaging_themes: legacy.hook
+      ? [{ title: 'Primary Hook', description: legacy.hook }]
+      : [],
+    messaging_tips: [],
+  }
+}
+
+function inferUnknownCategory(text: string): string {
+  const key = text.toLowerCase()
+  if (/product|feature|roadmap|platform/.test(key)) return 'Product'
+  if (/market|competitor|customer|segment/.test(key)) return 'Market'
+  if (/operation|process|team|hiring/.test(key)) return 'Operations'
+  if (/financial|revenue|margin|pricing|funding/.test(key)) return 'Financial'
+  if (/partner|integration|ecosystem/.test(key)) return 'Partnerships'
+  return 'Strategy'
+}
+
+function buildUnknownImpactMix(
+  high: number,
+  medium: number,
+  low: number
+): UnknownsOverview['impact_mix'] {
+  const total = high + medium + low || 1
+  return [
+    { name: 'High Impact', impact: 'high', count: high, percent: Math.round((high / total) * 100) },
+    { name: 'Medium Impact', impact: 'medium', count: medium, percent: Math.round((medium / total) * 100) },
+    { name: 'Low Impact', impact: 'low', count: low, percent: Math.round((low / total) * 100) },
+  ]
+}
+
+function buildUnknownCategories(
+  items: UnknownsOverview['unknown_items']
+): UnknownsOverview['categories'] {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    counts.set(item.category, (counts.get(item.category) ?? 0) + 1)
+  }
+  const total = items.length || 1
+  return [...counts.entries()].map(([name, count]) => ({
+    name,
+    count,
+    percent: Math.round((count / total) * 100),
+  }))
+}
+
+function buildUnknownTimeHorizonMix(
+  items: UnknownsOverview['unknown_items']
+): UnknownsOverview['time_horizon_mix'] {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    const horizon = item.time_horizon ?? 'mid-term'
+    counts.set(horizon, (counts.get(horizon) ?? 0) + 1)
+  }
+  const total = items.length || 1
+  const labels: Record<string, string> = {
+    'short-term': 'Short-term (0-12 months)',
+    'mid-term': 'Mid-term (1-3 years)',
+    'long-term': 'Long-term (3+ years)',
+  }
+  return [...counts.entries()].map(([horizon, count]) => ({
+    name: labels[horizon] ?? horizon,
+    horizon: horizon as UnknownsOverview['time_horizon_mix'][number]['horizon'],
+    count,
+    percent: Math.round((count / total) * 100),
+  }))
+}
+
+export function buildUnknownsOverview(structured: StructuredReport): UnknownsOverview {
+  if (structured.unknowns_overview) {
+    return structured.unknowns_overview
+  }
+
+  const legacyUnknowns = structured.unknowns ?? []
+  const items: UnknownsOverview['unknown_items'] = legacyUnknowns.map((text, index) => {
+    const impact: UnknownImpact = index < 2 ? 'high' : index < 6 ? 'medium' : 'low'
+    return {
+      unknown: text,
+      category: inferUnknownCategory(text),
+      impact,
+      why_it_matters: 'Information gap identified during research synthesis.',
+      potential_impact: impact,
+      time_horizon: index % 3 === 0 ? 'short-term' : index % 3 === 1 ? 'mid-term' : 'long-term',
+    }
+  })
+
+  const high = items.filter((item) => item.impact === 'high').length
+  const medium = items.filter((item) => item.impact === 'medium').length
+  const low = items.filter((item) => item.impact === 'low').length
+
+  return {
+    summary_counts: [
+      { label: 'Total Unknowns', value: items.length, hint: 'Information gaps identified' },
+      { label: 'High Impact', value: high, hint: 'Critical to strategy' },
+      { label: 'Medium Impact', value: medium, hint: 'Important to clarify' },
+      { label: 'Low Impact', value: low, hint: 'Nice to know' },
+    ],
+    impact_mix: buildUnknownImpactMix(high, medium, low),
+    categories: buildUnknownCategories(items),
+    unknown_items: items,
+    time_horizon_mix: buildUnknownTimeHorizonMix(items),
+    learning_objectives: [],
+    resolution_strategies: [],
+  }
+}
+
+function inferSourceType(url: string, title: string): string {
+  const category = inferSourceCategory(url, title)
+  if (category === 'News') return 'News & Media'
+  if (category === 'Company') return 'Company Documents'
+  if (category === 'Research') return 'Reports & Research'
+  if (category === 'LinkedIn' || category === 'Social' || category === 'Reddit') return 'Social Media'
+  if (category === 'G2 Reviews' || category === 'Product Hunt') return 'Social Media'
+  return 'Websites'
+}
+
+function inferSourceListCategory(url: string, title: string): string {
+  const category = inferSourceCategory(url, title)
+  if (category === 'News') return 'News'
+  if (category === 'Company') return 'Company'
+  if (category === 'Research') return 'Industry Research'
+  if (category === 'LinkedIn') return 'Stakeholders'
+  if (category === 'Product Hunt' || category === 'G2 Reviews') return 'Product'
+  return 'Other'
+}
+
+function inferSourceReliability(url: string, title: string): number {
+  const type = inferSourceType(url, title)
+  if (type === 'Company Documents') return 5
+  if (type === 'Reports & Research') return 4
+  if (type === 'News & Media') return 4
+  if (type === 'Social Media') return 3
+  return 4
+}
+
+function buildSourceTypeMix(sources: SourcesOverview['sources']): SourcesOverview['source_type_mix'] {
+  const counts = new Map<string, number>()
+  for (const source of sources) {
+    counts.set(source.type, (counts.get(source.type) ?? 0) + 1)
+  }
+  const total = sources.length || 1
+  return [...counts.entries()].map(([name, count]) => ({
+    name,
+    count,
+    percent: Math.round((count / total) * 100),
+  }))
+}
+
+function buildReliabilityBreakdown(
+  sources: SourcesOverview['sources']
+): SourcesOverview['reliability_breakdown'] {
+  const labels = ['Very Low', 'Low', 'Medium', 'High', 'Very High']
+  const counts = [0, 0, 0, 0, 0]
+  for (const source of sources) {
+    const index = Math.min(5, Math.max(1, source.reliability)) - 1
+    counts[index] += 1
+  }
+  const total = sources.length || 1
+  return counts.map((count, index) => ({
+    stars: index + 1,
+    label: labels[index],
+    count,
+    percent: Math.round((count / total) * 100),
+  }))
+}
+
+export function buildSourcesOverview(structured: StructuredReport): SourcesOverview {
+  if (structured.sources_overview) {
+    return structured.sources_overview
+  }
+
+  const legacySources = structured.sources ?? []
+  const items: SourcesOverview['sources'] = legacySources.map((source) => ({
+    title: source.title,
+    url: source.url,
+    snippet: source.snippet,
+    type: inferSourceType(source.url, source.title),
+    category: inferSourceListCategory(source.url, source.title),
+    reliability: inferSourceReliability(source.url, source.title),
+    accessed_on: 'Recent',
+    is_primary: inferSourceType(source.url, source.title) === 'Company Documents',
+  }))
+
+  const primary = items.filter((item) => item.is_primary).length
+  const secondary = items.length - primary
+  const categories = new Set(items.map((item) => item.category))
+  const avgReliability = items.length
+    ? (items.reduce((sum, item) => sum + item.reliability, 0) / items.length).toFixed(1)
+    : '0'
+
+  const typeMix = buildSourceTypeMix(items)
+  const categoryBreakdown = typeMix.map((item) => ({ name: item.name, count: item.count }))
+
+  return {
+    summary_counts: [
+      { label: 'Total Sources', value: items.length, hint: 'Across all categories' },
+      { label: 'Primary Sources', value: primary, hint: 'Direct and official' },
+      { label: 'Secondary Sources', value: secondary, hint: 'Analysis and coverage' },
+      { label: 'Categories', value: categories.size, hint: 'Source categories' },
+      { label: 'Avg. Reliability', value: `${avgReliability} / 5`, hint: 'Across all sources' },
+    ],
+    source_type_mix: typeMix,
+    sources: items,
+    category_breakdown: categoryBreakdown,
+    reliability_breakdown: buildReliabilityBreakdown(items),
+    highlights: items.length
+      ? [
+          {
+            title: 'Diverse & Credible',
+            description: `${items.length} sources across ${typeMix.length} types including official and media coverage.`,
+          },
+        ]
+      : [],
+    recent_sources: items.slice(0, 3),
+  }
+}
+
+function inferDiscoveryCategory(source: string, targets?: string): string {
+  const combined = `${source} ${targets ?? ''}`.toLowerCase()
+  if (/product|feature|roadmap|platform/.test(combined)) return 'Product'
+  if (/market|competitor|customer|segment/.test(combined)) return 'Market'
+  if (/operation|process|team|hiring/.test(combined)) return 'Operations'
+  if (/financial|revenue|margin|pricing/.test(combined)) return 'Financial'
+  if (/partner|integration|ecosystem/.test(combined)) return 'Partnerships'
+  return 'Strategy'
+}
+
+function buildDiscoverySummaryCounts(
+  total: number,
+  high: number,
+  medium: number,
+  low: number
+): DiscoveryQuestionsOverview['summary_counts'] {
+  return [
+    { label: 'Total Questions', value: total, hint: 'Across all categories' },
+    { label: 'High Priority', value: high, hint: 'Critical to validate' },
+    { label: 'Medium Priority', value: medium, hint: 'Important to explore' },
+    { label: 'Low Priority', value: low, hint: 'Good to know' },
+  ]
+}
+
+function buildDiscoveryPriorityMix(
+  high: number,
+  medium: number,
+  low: number
+): DiscoveryQuestionsOverview['priority_mix'] {
+  const total = high + medium + low || 1
+  return [
+    { name: 'High Priority', priority: 'high', count: high, percent: Math.round((high / total) * 100) },
+    { name: 'Medium Priority', priority: 'medium', count: medium, percent: Math.round((medium / total) * 100) },
+    { name: 'Low Priority', priority: 'low', count: low, percent: Math.round((low / total) * 100) },
+  ]
+}
+
+function buildDiscoveryCategories(
+  questions: DiscoveryQuestionsOverview['questions']
+): DiscoveryQuestionsOverview['categories'] {
+  const counts = new Map<string, number>()
+  for (const question of questions) {
+    counts.set(question.category, (counts.get(question.category) ?? 0) + 1)
+  }
+  const total = questions.length || 1
+  return [...counts.entries()].map(([name, count]) => ({
+    name,
+    count,
+    percent: Math.round((count / total) * 100),
+  }))
+}
+
+export function buildDiscoveryQuestionsOverview(
+  structured: StructuredReport
+): DiscoveryQuestionsOverview {
+  if (structured.discovery_questions_overview?.questions?.length) {
+    return structured.discovery_questions_overview
+  }
+
+  const legacyQuestions = structured.discovery_questions ?? []
+  const questions: DiscoveryQuestionsOverview['questions'] = legacyQuestions.map((item, index) => {
+    const category = inferDiscoveryCategory(item.signal_source, item.targets)
+    const priority: DiscoveryPriority = index < 3 ? 'high' : index < 8 ? 'medium' : 'low'
+    return {
+      question: item.question,
+      category,
+      priority,
+      rationale: item.signal_source,
+      potential_impact: priority === 'high' ? 'high' : priority === 'medium' ? 'medium' : 'low',
+      signal_source: item.signal_source,
+      targets: item.targets,
+    }
+  })
+
+  const high = questions.filter((q) => q.priority === 'high').length
+  const medium = questions.filter((q) => q.priority === 'medium').length
+  const low = questions.filter((q) => q.priority === 'low').length
+
+  return {
+    summary_counts: buildDiscoverySummaryCounts(questions.length, high, medium, low),
+    priority_mix: buildDiscoveryPriorityMix(high, medium, low),
+    categories: buildDiscoveryCategories(questions),
+    questions,
+  }
+}
+
 const BOARD_TITLE_PATTERN = /\b(board|chair|director)\b/i
 
 function normalizePersonName(name: string): string {
@@ -722,6 +1134,8 @@ export function getStructuredReport(
     structured.products_services = buildProductsServices(structured)
   }
 
+  structured.target_customers_overview = buildTargetCustomersOverview(structured)
+
   if (!structured.risks_challenges) {
     structured.risks_challenges = buildRisksChallenges(structured)
   }
@@ -731,6 +1145,14 @@ export function getStructuredReport(
   }
 
   structured.stakeholders_overview = buildStakeholdersOverview(structured)
+
+  structured.discovery_questions_overview = buildDiscoveryQuestionsOverview(structured)
+
+  structured.outreach_overview = buildOutreachOverview(structured)
+
+  structured.unknowns_overview = buildUnknownsOverview(structured)
+
+  structured.sources_overview = buildSourcesOverview(structured)
 
   return structured
 }
@@ -869,7 +1291,9 @@ export function isSectionComplete(structured: StructuredReport, sectionId: strin
     case 'products':
       return Boolean(structured.products_services?.core_products.length || structured.products.length > 0)
     case 'customers':
-      return structured.target_customers.length > 0
+      return Boolean(
+        structured.target_customers_overview?.segments.length || structured.target_customers.length > 0
+      )
     case 'stakeholders':
       return Boolean(structured.stakeholders_overview?.executives.length || structured.stakeholders.length > 0)
     case 'signals':
@@ -877,13 +1301,22 @@ export function isSectionComplete(structured: StructuredReport, sectionId: strin
     case 'risks':
       return Boolean(structured.risks_challenges?.top_risks.length || structured.risks.length > 0)
     case 'discovery':
-      return structured.discovery_questions.length > 0
+      return Boolean(
+        structured.discovery_questions_overview?.questions.length ||
+          structured.discovery_questions.length > 0
+      )
     case 'outreach':
-      return Boolean(structured.outreach.hook)
+      return Boolean(
+        structured.outreach_overview?.strategies.length || structured.outreach.hook
+      )
     case 'unknowns':
-      return structured.unknowns.length > 0
+      return Boolean(
+        structured.unknowns_overview?.unknown_items.length || structured.unknowns.length > 0
+      )
     case 'sources':
-      return structured.sources.length > 0
+      return Boolean(
+        structured.sources_overview?.sources.length || structured.sources.length > 0
+      )
     default:
       return false
   }

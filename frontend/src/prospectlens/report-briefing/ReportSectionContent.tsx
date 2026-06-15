@@ -31,9 +31,14 @@ import {
 } from '@/types/structured-report'
 import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/BusinessSignalsDashboard'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
+import { DiscoveryQuestionsDashboard } from '@/prospectlens/report-briefing/DiscoveryQuestionsDashboard'
+import { OutreachStrategiesDashboard } from '@/prospectlens/report-briefing/OutreachStrategiesDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
+import { SourcesDashboard } from '@/prospectlens/report-briefing/SourcesDashboard'
+import { UnknownsDashboard } from '@/prospectlens/report-briefing/UnknownsDashboard'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
 import { StakeholdersDashboard } from '@/prospectlens/report-briefing/StakeholdersDashboard'
+import { TargetCustomersDashboard } from '@/prospectlens/report-briefing/TargetCustomersDashboard'
 
 export type { ReportSectionId, ReportNavId }
 
@@ -53,14 +58,14 @@ export const REPORT_NAV_ICONS: Record<ReportNavId, LucideIcon> = {
 export const REPORT_NAV_DESCRIPTIONS: Record<ReportNavId, string> = {
   company_overview: 'Snapshot, metrics & market position',
   products: 'Offerings & positioning',
-  customers: 'ICP & segments',
+  customers: 'Segments, industries & geographies',
   stakeholders: 'Executives, board & partners',
   signals: 'Dated business events',
   risks: 'Severity-ranked risks',
-  discovery: 'Meeting questions',
-  outreach: 'Channel & sequence',
-  unknowns: 'Gaps to validate',
-  sources: 'Evidence links',
+  discovery: 'Prioritized meeting questions',
+  outreach: 'Strategies, channels & personas',
+  unknowns: 'Gaps, impact & resolution plan',
+  sources: 'Cited references & reliability',
 }
 
 function MetricCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -375,6 +380,16 @@ export function ReportNavContent({ navId, structured, session }: ReportNavConten
     )
   }
 
+  if (navId === 'customers' && session) {
+    return (
+      <TargetCustomersDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
   if (navId === 'risks' && session) {
     return (
       <RisksChallengesDashboard
@@ -398,6 +413,46 @@ export function ReportNavContent({ navId, structured, session }: ReportNavConten
   if (navId === 'stakeholders' && session) {
     return (
       <StakeholdersDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'discovery' && session) {
+    return (
+      <DiscoveryQuestionsDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'outreach' && session) {
+    return (
+      <OutreachStrategiesDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'unknowns' && session) {
+    return (
+      <UnknownsDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'sources' && session) {
+    return (
+      <SourcesDashboard
         structured={structured}
         session={session}
         updatedAt={session.created_at}

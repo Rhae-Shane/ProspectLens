@@ -139,6 +139,48 @@ export interface TargetCustomer {
   named_customers?: string[]
 }
 
+export interface CustomerOverviewMetric {
+  label: string
+  value: string
+  hint?: string
+}
+
+export interface CustomerSizeMix {
+  name: string
+  range?: string
+  percent: number
+}
+
+export interface CustomerSegmentCard {
+  name: string
+  description: string
+  key_needs: string[]
+  example_customers: string[]
+}
+
+export interface IndustryDistributionItem {
+  name: string
+  percent: number
+}
+
+export interface GeographicRegionItem {
+  name: string
+  percent: number
+}
+
+export interface TargetCustomersOverview {
+  summary_metrics: CustomerOverviewMetric[]
+  business_size_mix: CustomerSizeMix[]
+  segments: CustomerSegmentCard[]
+  industry_distribution: IndustryDistributionItem[]
+  industry_callout?: {
+    title: string
+    text: string
+  }
+  geographic_regions: GeographicRegionItem[]
+  success_summary: string
+}
+
 export interface Stakeholder {
   name: string
   title: string
@@ -345,6 +387,46 @@ export interface DiscoveryQuestion {
   targets?: string
 }
 
+export type DiscoveryPriority = 'high' | 'medium' | 'low'
+
+export type DiscoveryImpact = 'high' | 'medium' | 'low'
+
+export interface DiscoveryQuestionItem {
+  question: string
+  category: string
+  priority: DiscoveryPriority
+  rationale: string
+  potential_impact: DiscoveryImpact
+  signal_source?: string
+  targets?: string
+}
+
+export interface DiscoverySummaryCount {
+  label: string
+  value: number
+  hint: string
+}
+
+export interface DiscoveryCategoryBreakdown {
+  name: string
+  count: number
+  percent: number
+}
+
+export interface DiscoveryPriorityMix {
+  name: string
+  priority: DiscoveryPriority
+  count: number
+  percent: number
+}
+
+export interface DiscoveryQuestionsOverview {
+  summary_counts: DiscoverySummaryCount[]
+  priority_mix: DiscoveryPriorityMix[]
+  categories: DiscoveryCategoryBreakdown[]
+  questions: DiscoveryQuestionItem[]
+}
+
 export interface OutreachSequenceStep {
   day: number
   action: string
@@ -359,15 +441,199 @@ export interface OutreachStrategy {
   sequence: OutreachSequenceStep[]
 }
 
+export type OutreachEffectiveness = 'high' | 'medium' | 'low'
+
+export type ChannelImpact = 'high' | 'medium' | 'low'
+
+export type TimingQuality = 'best' | 'good' | 'okay'
+
+export interface OutreachSummaryCount {
+  label: string
+  value: number | string
+  hint?: string
+}
+
+export interface ExpectedImpact {
+  score: number
+  max_score?: number
+  label: string
+  description?: string
+}
+
+export interface OutreachStrategyMix {
+  name: string
+  percent: number
+}
+
+export interface OutreachStrategyItem {
+  name: string
+  description: string
+  best_for: string
+  primary_channels: string[]
+  effectiveness: OutreachEffectiveness
+  effectiveness_score?: number
+  time_to_impact: string
+}
+
+export interface RecommendedChannel {
+  name: string
+  impact: ChannelImpact
+  score?: number
+}
+
+export interface OutreachTimingCell {
+  day: string
+  time: string
+  quality: TimingQuality
+}
+
+export interface TargetPersona {
+  persona: string
+  role: string
+  goal_interest: string
+  preferred_channels: string[]
+}
+
+export interface MessagingTheme {
+  title: string
+  description: string
+}
+
+export interface OutreachOverview {
+  summary_counts: OutreachSummaryCount[]
+  expected_impact: ExpectedImpact
+  strategy_mix: OutreachStrategyMix[]
+  strategies: OutreachStrategyItem[]
+  recommended_channels: RecommendedChannel[]
+  outreach_timing: OutreachTimingCell[]
+  target_personas: TargetPersona[]
+  messaging_themes: MessagingTheme[]
+  messaging_tips?: string[]
+}
+
+export type UnknownImpact = 'high' | 'medium' | 'low'
+
+export type UnknownTimeHorizon = 'short-term' | 'mid-term' | 'long-term'
+
+export interface UnknownSummaryCount {
+  label: string
+  value: number
+  hint: string
+}
+
+export interface UnknownImpactMix {
+  name: string
+  impact: UnknownImpact
+  count: number
+  percent: number
+}
+
+export interface UnknownCategoryBreakdown {
+  name: string
+  count: number
+  percent: number
+}
+
+export interface UnknownItem {
+  unknown: string
+  category: string
+  impact: UnknownImpact
+  why_it_matters: string
+  potential_impact: UnknownImpact
+  time_horizon?: UnknownTimeHorizon
+}
+
+export interface UnknownTimeHorizonMix {
+  name: string
+  horizon: UnknownTimeHorizon
+  count: number
+  percent: number
+}
+
+export interface UnknownLearningObjective {
+  title: string
+  description: string
+}
+
+export interface UnknownResolutionStrategy {
+  title: string
+  description: string
+}
+
+export interface UnknownsOverview {
+  summary_counts: UnknownSummaryCount[]
+  impact_mix: UnknownImpactMix[]
+  categories: UnknownCategoryBreakdown[]
+  unknown_items: UnknownItem[]
+  time_horizon_mix: UnknownTimeHorizonMix[]
+  learning_objectives?: UnknownLearningObjective[]
+  resolution_strategies?: UnknownResolutionStrategy[]
+}
+
+export interface SourceSummaryCount {
+  label: string
+  value: number | string
+  hint?: string
+}
+
+export interface SourceTypeMix {
+  name: string
+  count: number
+  percent: number
+}
+
+export interface SourceListItem {
+  title: string
+  type: string
+  category: string
+  reliability: number
+  accessed_on: string
+  url: string
+  snippet?: string
+  is_primary?: boolean
+}
+
+export interface SourceCategoryBreakdown {
+  name: string
+  count: number
+}
+
+export interface ReliabilityBreakdown {
+  stars: number
+  label: string
+  count: number
+  percent: number
+}
+
+export interface SourceHighlight {
+  title: string
+  description: string
+}
+
+export interface SourcesOverview {
+  summary_counts: SourceSummaryCount[]
+  source_type_mix: SourceTypeMix[]
+  sources: SourceListItem[]
+  category_breakdown: SourceCategoryBreakdown[]
+  reliability_breakdown: ReliabilityBreakdown[]
+  highlights: SourceHighlight[]
+  recent_sources: SourceListItem[]
+}
+
 export interface StructuredReport {
   header: ReportHeader
   company_snapshot: SnapshotField
   commercial_profile: CommercialField
   company_overview?: CompanyOverview
   products_services?: ProductsServicesOverview
+  target_customers_overview?: TargetCustomersOverview
   risks_challenges?: RisksChallengesOverview
   business_signals?: BusinessSignalsOverview
   stakeholders_overview?: StakeholdersOverview
+  discovery_questions_overview?: DiscoveryQuestionsOverview
+  outreach_overview?: OutreachOverview
+  unknowns_overview?: UnknownsOverview
+  sources_overview?: SourcesOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]

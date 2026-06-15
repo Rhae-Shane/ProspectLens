@@ -141,6 +141,24 @@ export const SESSION_EXAMPLES = [
     objective:
       "Get a briefing on Notion's product suite, target customers, and expansion signals ahead of a discovery call.",
   },
+  {
+    name: "Shopify",
+    website: "https://shopify.com",
+    objective:
+      "Research Shopify before an enterprise outreach — understand their merchant platform, Plus segment, and recent commerce trends.",
+  },
+  {
+    name: "Figma",
+    website: "https://figma.com",
+    objective:
+      "Prepare for a design-tool partnership pitch — map Figma's product lines, enterprise adoption, and competitive landscape.",
+  },
+  {
+    name: "Datadog",
+    website: "https://datadoghq.com",
+    objective:
+      "Brief on Datadog ahead of a security and observability sales call — focus on platform breadth, ICP, and buying triggers.",
+  },
 ] as const;
 
 export function ExampleSessionsCard({
