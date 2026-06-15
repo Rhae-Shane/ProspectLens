@@ -41,4 +41,8 @@ def parse_search_config(plan: dict[str, Any]) -> dict[str, Any]:
         "firecrawl_search_limit": _clamp_int(raw.get("firecrawl_search_limit"), default=5, minimum=3, maximum=10),
         "firecrawl_crawl_limit": _clamp_int(raw.get("firecrawl_crawl_limit"), default=5, minimum=2, maximum=10),
         "producthunt_use_lookup": _as_bool(raw.get("producthunt_use_lookup"), default=False),
+        "intel_reddit_search": _as_bool(raw.get("intel_reddit_search"), default=True),
+        "intel_g2_search": _as_bool(raw.get("intel_g2_search"), default=True),
+        "intel_hiring_search": _as_bool(raw.get("intel_hiring_search"), default=True),
+        "intel_sentiment_search": _as_bool(raw.get("intel_sentiment_search"), default=True),
     }

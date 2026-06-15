@@ -234,17 +234,51 @@ class FirecrawlClient:
         return []
 
     @staticmethod
+    def guess_priority_urls(website: str) -> list[str]:
+        base = normalize_url(website).rstrip("/")
+        if not base:
+            return []
+        paths = (
+            "/pricing",
+            "/customers",
+            "/case-studies",
+            "/case-studies/",
+            "/about",
+            "/product",
+            "/products",
+            "/solutions",
+            "/plans",
+        )
+        return [f"{base}{path}" for path in paths]
+
+    @staticmethod
     def pick_scrape_urls(homepage: str, map_sources: list[dict[str, str]], limit: int) -> list[str]:
         home = normalize_url(homepage)
         home_host = urlparse(home).netloc
         picked: list[str] = []
         seen = {home.rstrip("/")}
 
-        keywords = ("pricing", "about", "product", "solutions", "customers", "company", "platform")
+        keyword_weights = {
+            "pricing": 4,
+            "customers": 4,
+            "case-studies": 4,
+            "case studies": 4,
+            "case_studies": 4,
+            "client": 3,
+            "success": 3,
+            "about": 2,
+            "product": 2,
+            "products": 2,
+            "solutions": 2,
+            "plans": 2,
+            "enterprise": 2,
+            "platform": 1,
+            "company": 1,
+        }
 
         def score(url: str, title: str) -> int:
             combined = f"{url} {title}".lower()
-            return sum(1 for keyword in keywords if keyword in combined)
+            return sum(weight for keyword, weight in keyword_weights.items() if keyword in combined)
 
         ranked = sorted(
             map_sources,
@@ -260,6 +294,17 @@ class FirecrawlClient:
                 continue
             seen.add(url.rstrip("/"))
             picked.append(url)
+            if len(picked) >= limit:
+                return picked
+
+        for url in FirecrawlClient.guess_priority_urls(homepage):
+            normalized = normalize_url(url).rstrip("/")
+            if normalized in seen:
+                continue
+            if urlparse(normalized).netloc and urlparse(normalized).netloc != home_host:
+                continue
+            seen.add(normalized)
+            picked.append(normalized)
             if len(picked) >= limit:
                 break
 

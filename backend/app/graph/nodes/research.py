@@ -3,6 +3,7 @@ from typing import Any
 
 from app.cache.context_cache import context_cache
 from app.config import get_settings
+from app.graph.intel_queries import build_targeted_intel_queries
 from app.graph.search_config import parse_search_config
 from app.providers import apollo_client, firecrawl_client, newsapi_client, perplexity_client, producthunt_client, tavily_client
 
@@ -218,6 +219,36 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
                 )
             ]
 
+    async def run_targeted_intel() -> list[tuple[dict[str, Any], int, float]]:
+        if not settings.tavily_api_key:
+            return []
+
+        intel_queries = build_targeted_intel_queries(company, search_config)
+        if not intel_queries:
+            return []
+
+        async def run_intel_query(query: str) -> tuple[dict[str, Any], int, float]:
+            try:
+                return await tavily_client.search(
+                    query,
+                    context,
+                    search_depth=search_config["tavily_search_depth"],
+                    max_results=search_config["tavily_max_results"],
+                )
+            except Exception as exc:
+                return (
+                    {
+                        "query": query,
+                        "provider": "tavily",
+                        "content": f"targeted intel search failed: {exc}",
+                        "sources": [],
+                    },
+                    0,
+                    0.0,
+                )
+
+        return list(await asyncio.gather(*[run_intel_query(query) for query in intel_queries]))
+
     async def run_apollo() -> list[tuple[dict[str, Any], int, float]]:
         if not settings.apollo_api_key or not website:
             return []
@@ -243,12 +274,14 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         firecrawl_results,
         producthunt_results,
         apollo_results,
+        intel_results,
     ) = await asyncio.gather(
         asyncio.gather(*[run_query(q) for q in queries]),
         run_news(),
         run_firecrawl(),
         run_producthunt(),
         run_apollo(),
+        run_targeted_intel(),
     )
 
     raw_research: list[dict[str, Any]] = []
@@ -280,6 +313,11 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         total_tokens += tokens
         total_cost += cost
 
+    for result, tokens, cost in intel_results:
+        raw_research.append(result)
+        total_tokens += tokens
+        total_cost += cost
+
     if state.get("retry_count", 0) == 0:
         await context_cache.set_research(company, website, objective, raw_research)
 
@@ -303,6 +341,7 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["research"] = {
         "queries_run": len(queries),
+        "intel_queries_run": len(build_targeted_intel_queries(company, search_config)),
         "results_count": len(raw_research),
         "providers": providers_used,
         "search_config": search_config,

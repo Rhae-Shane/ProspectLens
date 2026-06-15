@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from app.config import get_settings
+from app.graph.qc_utils import unknowns_from_coverage
 from app.providers import openai_client
 
 settings = get_settings()
@@ -16,7 +17,8 @@ Evaluate the research data quality and return JSON with:
 - source_count: integer count of unique sources found
 - recommendation: "proceed" or "retry_research"
 
-Score below 0.75 if: fewer than 3 sources, missing key sections, or insufficient company-specific data.
+Score section_coverage below 0.6 when data for that section is missing, generic, or weak.
+Score below 0.75 overall if: fewer than 3 sources, missing key sections, or insufficient company-specific data.
 Return ONLY valid JSON."""
 
 
@@ -36,6 +38,8 @@ Analysis:
 Evaluate quality for report generation."""
 
     qc_result, tokens, cost = await openai_client.complete_json(QC_SYSTEM, user_prompt)
+    suggested_unknowns = unknowns_from_coverage(qc_result.get("section_coverage", {}))
+    qc_result["suggested_unknowns"] = suggested_unknowns
 
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["quality_check"] = qc_result
@@ -43,6 +47,7 @@ Evaluate quality for report generation."""
     return {
         "quality_score": float(qc_result.get("quality_score", 0.5)),
         "quality_issues": qc_result.get("quality_issues", []),
+        "qc_unknowns": suggested_unknowns,
         "node_outputs": node_outputs,
         "total_tokens": state.get("total_tokens", 0) + tokens,
         "total_cost_usd": state.get("total_cost_usd", 0.0) + cost,

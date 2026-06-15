@@ -5,15 +5,19 @@ from app.providers import openai_client
 
 ANALYZE_SYSTEM = """You are a business analyst extracting structured insights from research data.
 Return JSON with these keys:
-- products_services: string summary
-- target_customers: string summary
-- business_signals: list of objects with {signal, evidence, relevance}
-- risks_challenges: list of objects with {risk, severity, evidence}
+- products_services: string summary including B2B/B2C/SaaS/services classification when evidence exists
+- target_customers: string summary of ICP, buyer vs user, and named customers if found
+- business_signals: list of objects with {signal, signal_type, evidence, relevance}
+  signal_type must be one of: Hiring, Funding, Product Launch, Leadership Change, Customer Win,
+  Negative Sentiment, Partnership, Expansion, Other
+- risks_challenges: list of objects with {risk, risk_category, severity, evidence}
+  risk_category must be one of: Market, Competitive, Operational, Financial, Reputation, Other
+  severity must be an integer 1-5 (5 = highest)
 - competitive_landscape: string summary
 - key_people: list of notable executives if found
 - financial_signals: string summary if available
 
-Return ONLY valid JSON."""
+Use only evidence from the research. Return ONLY valid JSON."""
 
 
 async def analyze_node(state: dict[str, Any]) -> dict[str, Any]:

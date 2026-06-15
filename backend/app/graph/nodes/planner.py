@@ -20,7 +20,12 @@ create a structured research plan as JSON with these keys:
   - firecrawl_search_limit: integer 3-10 (only if firecrawl_use_search is true)
   - firecrawl_crawl_limit: integer 2-10 (only if firecrawl_use_crawl is true)
   - producthunt_use_lookup: boolean (true for startups/SaaS/consumer products likely on Product Hunt; false for large enterprises)
+  - intel_reddit_search: boolean (true to search site:reddit.com for customer opinions; false for enterprises with little community buzz)
+  - intel_g2_search: boolean (true for SaaS/software where G2 reviews matter)
+  - intel_hiring_search: boolean (true when hiring signals help the sales conversation)
+  - intel_sentiment_search: boolean (true when customer praise/complaints matter for the objective)
 
+Also include in queries where relevant: pricing/ICP, competitors, and risks.
 Return ONLY valid JSON, no markdown."""
 
 
