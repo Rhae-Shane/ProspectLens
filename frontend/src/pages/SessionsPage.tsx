@@ -1,9 +1,5 @@
-import { SessionsSection } from "@/pages/sessions/_components/sessions-section";
+import { SessionsWorkspace } from '@/pages/sessions/_components/sessions-workspace'
 
 export function SessionsPage() {
-  return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SessionsSection />
-    </div>
-  );
+  return <SessionsWorkspace />
 }
