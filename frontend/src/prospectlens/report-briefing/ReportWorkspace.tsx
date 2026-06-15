@@ -25,6 +25,7 @@ import { getStructuredReport } from '@/lib/structured-report-utils'
 import { cn, formatDisplayTimestamp } from '@/lib/utils'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
+import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
 import {
   ReportNavContent,
   type ReportSessionMeta,
@@ -191,7 +192,17 @@ export function ReportWorkspace({
               </div>
             ) : null}
 
-            {activeSection !== 'company_overview' && activeSection !== 'chat' ? (
+            {activeSection === 'products' ? (
+              <ProductsServicesDashboard
+                structured={structured}
+                session={session}
+                updatedAt={session.created_at}
+              />
+            ) : null}
+
+            {activeSection !== 'company_overview' &&
+            activeSection !== 'products' &&
+            activeSection !== 'chat' ? (
               <ReportNavContent
                 navId={activeSection}
                 structured={structured}

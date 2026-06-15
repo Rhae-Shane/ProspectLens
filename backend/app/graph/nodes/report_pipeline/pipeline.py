@@ -6,7 +6,11 @@ from app.graph.research_context import serialize_research_for_llm
 from app.providers import openai_client
 from app.schemas import normalize_report_content
 
+from app.config import get_settings
+from app.providers.firecrawl import firecrawl_client
+
 from .extractors import (
+    extract_product_page_research,
     extract_products,
     extract_snapshot,
     extract_sources,
@@ -19,6 +23,7 @@ from .prompts import (
     COMPANY_OVERVIEW_SYSTEM,
     DISCOVERY_SYSTEM,
     OUTREACH_SYSTEM,
+    PRODUCTS_SERVICES_SYSTEM,
     SIGNALS_RISKS_SYSTEM,
     STAKEHOLDER_SYSTEM,
 )
@@ -28,6 +33,40 @@ def _parse_json_payload(result: Any) -> dict[str, Any]:
     if isinstance(result, dict):
         return result
     return {}
+
+
+async def _enrich_product_research(
+    state: dict[str, Any],
+    base_snippet: str,
+) -> tuple[str, int, float]:
+    """Scrape product/solution pages when research content is thin."""
+    if len(base_snippet) >= 2500:
+        return base_snippet, 0, 0.0
+
+    if not get_settings().firecrawl_api_key or not state.get("website"):
+        return base_snippet, 0, 0.0
+
+    website = str(state["website"])
+    urls = [
+        url
+        for url in firecrawl_client.guess_priority_urls(website)
+        if any(keyword in url.lower() for keyword in ("product", "solution", "pricing"))
+    ]
+    if not urls:
+        urls = firecrawl_client.guess_priority_urls(website)[:1]
+
+    extra_parts = [base_snippet]
+    total_tokens = 0
+    total_cost = 0.0
+    for url in urls[:2]:
+        result, tokens, cost = await firecrawl_client.scrape(url)
+        total_tokens += tokens
+        total_cost += cost
+        content = str(result.get("content", "")).strip()
+        if content and not content.startswith("Configure FIRECRAWL"):
+            extra_parts.append(f"\n--- Scraped {url} ---\n{content[:6000]}")
+
+    return "\n".join(extra_parts)[:12000], total_tokens, total_cost
 
 
 async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], int, float]:
@@ -57,9 +96,42 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     }
 
     products = extract_products(state)
+
+    product_research = extract_product_page_research(state)
+    product_research, scrape_tokens, scrape_cost = await _enrich_product_research(state, product_research)
+    total_tokens += scrape_tokens
+    total_cost += scrape_cost
+
+    products_result, tokens, cost = await openai_client.complete_json(
+        PRODUCTS_SERVICES_SYSTEM,
+        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"Existing products extract:\n{json.dumps(products.get('products', [])[:6], indent=2)}\n\n"
+        f"Product page research & scrapes:\n{product_research}\n\n"
+        f"Analysis:\n{json.dumps(analysis, indent=2)[:4000]}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    products_services = _parse_json_payload(products_result)
+
+    core_products = products_services.get("core_products") or []
+    if core_products:
+        products["products"] = [
+            {
+                "name": str(item.get("name", "Product"))[:80],
+                "type": str(item.get("category", "Product"))[:40],
+                "description": str(item.get("description", ""))[:500],
+                "tag": str(item.get("category_color", ""))[:20],
+                "features": [str(f) for f in (item.get("features") or [])[:5]],
+            }
+            for item in core_products[:8]
+            if isinstance(item, dict)
+        ]
+
     node_outputs["report_products"] = {
         "product_count": len(products.get("products", [])),
         "segment_count": len(products.get("target_customers", [])),
+        "core_products": len(core_products),
+        "scraped_chars": len(product_research),
     }
 
     research_snippet = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=6000)
@@ -147,6 +219,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "company_snapshot": snapshot["company_snapshot"],
         "commercial_profile": snapshot["commercial_profile"],
         "company_overview": company_overview,
+        "products_services": products_services,
         "products": products["products"],
         "target_customers": products["target_customers"],
         "stakeholders": stakeholders,
@@ -167,6 +240,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "pipeline_nodes": [
             "report_snapshot",
             "report_company_overview",
+            "report_products_services",
             "report_products",
             "report_stakeholders",
             "report_signals_risks",

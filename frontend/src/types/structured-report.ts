@@ -93,6 +93,44 @@ export interface ReportProduct {
   type: string
   description: string
   tag?: string
+  features?: string[]
+}
+
+export interface PortfolioMetric {
+  label: string
+  value: string
+}
+
+export interface ProductCategory {
+  name: string
+  percent: number
+}
+
+export interface CoreProduct {
+  name: string
+  description: string
+  features: string[]
+  category: string
+  category_color?: 'core' | 'risk' | 'analytics' | 'financial' | 'compliance' | 'default'
+}
+
+export interface AdditionalCapability {
+  name: string
+  description: string
+}
+
+export interface DeveloperNote {
+  title: string
+  text: string
+}
+
+export interface ProductsServicesOverview {
+  summary: string
+  portfolio_metrics: PortfolioMetric[]
+  categories: ProductCategory[]
+  core_products: CoreProduct[]
+  additional_capabilities: AdditionalCapability[]
+  developer_note?: DeveloperNote
 }
 
 export interface TargetCustomer {
@@ -151,6 +189,7 @@ export interface StructuredReport {
   company_snapshot: SnapshotField
   commercial_profile: CommercialField
   company_overview?: CompanyOverview
+  products_services?: ProductsServicesOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]

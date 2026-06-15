@@ -49,3 +49,41 @@ Return ONLY valid JSON with this shape:
 }
 Provide exactly 6 key_metrics, 4 commercial_trends (each trend array 7 numbers), 4 growth_signals, 3 recent_news items.
 Use only facts from the research. Estimate trends directionally when exact history is unavailable."""
+
+PRODUCTS_SERVICES_SYSTEM = """You build a rich Products & Services dashboard for a sales briefing.
+Use scraped product pages, website content, and research. Return ONLY valid JSON:
+{
+  "summary": "2-3 sentence portfolio overview",
+  "portfolio_metrics": [
+    {"label": "Products & Features", "value": "50+"},
+    {"label": "Countries & Regions", "value": "250+"},
+    {"label": "Currencies", "value": "135+"},
+    {"label": "API Uptime", "value": "99.99%"}
+  ],
+  "categories": [
+    {"name": "Payments", "percent": 40},
+    {"name": "Financial Services", "percent": 25},
+    {"name": "Business Operations", "percent": 20},
+    {"name": "Developer Tools", "percent": 10},
+    {"name": "Others", "percent": 5}
+  ],
+  "core_products": [
+    {
+      "name": "Payments",
+      "description": "1-2 sentence product summary",
+      "features": ["feature 1", "feature 2", "feature 3"],
+      "category": "Core",
+      "category_color": "core"
+    }
+  ],
+  "additional_capabilities": [
+    {"name": "Checkout", "description": "one-line description"}
+  ],
+  "developer_note": {
+    "title": "Developer First",
+    "text": "1-2 sentences about APIs, docs, SDKs if applicable; empty string if not a dev product company"
+  }
+}
+Provide exactly 4 portfolio_metrics, 4-5 categories (percents sum ~100), 6-8 core_products (each with 3 features),
+and 4-6 additional_capabilities. category_color: core | risk | analytics | financial | compliance | default.
+Use only products found in research/scraped pages. Do not invent product names unrelated to the company."""

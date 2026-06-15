@@ -67,6 +67,36 @@ def extract_snapshot(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_PRODUCT_KEYWORDS = ("product", "solution", "pricing", "platform", "feature", "service")
+
+
+def extract_product_page_research(state: dict[str, Any], max_chars: int = 12000) -> str:
+    """Collect product/solution page content from analysis and raw research (incl. Firecrawl scrapes)."""
+    parts: list[str] = []
+    analysis = state.get("business_signals") or {}
+    products_text = _safe_str(analysis.get("products_services"), "")
+    if products_text and products_text != "Not available":
+        parts.append(f"Analysis products_services:\n{products_text[:4000]}")
+
+    for item in state.get("raw_research", []):
+        if not isinstance(item, dict):
+            continue
+        query = _safe_str(item.get("query"), "")
+        content = _safe_str(item.get("content"), "")
+        provider = _safe_str(item.get("provider"), "")
+        if not content or content.startswith("firecrawl request failed"):
+            continue
+
+        source_urls = " ".join(str(src.get("url", "")) for src in item.get("sources", []) if isinstance(src, dict))
+        combined = f"{query} {source_urls} {content[:300]}".lower()
+        is_product_related = any(keyword in combined for keyword in _PRODUCT_KEYWORDS)
+        if is_product_related or provider == "firecrawl":
+            label = query or source_urls[:120] or provider
+            parts.append(f"\n--- {provider}: {label} ---\n{content[:5000]}")
+
+    return "\n".join(parts)[:max_chars]
+
+
 def extract_products(state: dict[str, Any]) -> dict[str, Any]:
     analysis = state.get("business_signals") or {}
     products_text = _safe_str(analysis.get("products_services"))
