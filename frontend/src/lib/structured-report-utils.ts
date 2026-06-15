@@ -1,4 +1,3 @@
-import { guessEntityDomain } from '@/lib/entity-logo'
 import type {
   BusinessSignalsOverview,
   BusinessSignal,
@@ -519,11 +518,113 @@ export function buildBusinessSignals(structured: StructuredReport): BusinessSign
   }
 }
 
-function enrichEntityStakeholder<T extends { name: string; website?: string }>(item: T): T {
+const BOARD_TITLE_PATTERN = /\b(board|chair|director)\b/i
+
+function normalizePersonName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function isBoardStakeholder(person: Stakeholder): boolean {
+  return BOARD_TITLE_PATTERN.test(person.title)
+}
+
+function stakeholderToExecutive(person: Stakeholder): StakeholdersOverview['executives'][number] {
   return {
-    ...item,
-    website: item.website || guessEntityDomain(item.name) || undefined,
+    name: person.name,
+    title: person.title,
+    tag: person.tag,
+    focus_areas: person.focus_areas ?? [],
+    background: person.background ?? person.why_matters ?? '',
+    linkedin_url: person.linkedin_url || undefined,
   }
+}
+
+function buildStakeholderSummaryCounts(
+  executives: number,
+  boardMembers: number,
+  investors: number,
+  partners: number,
+  otherGroups: number
+): StakeholdersOverview['summary_counts'] {
+  const total = executives + boardMembers + investors + partners + otherGroups
+  return [
+    { label: 'Key Stakeholders Identified', value: total, hint: 'Across all groups' },
+    { label: 'Executive Leaders', value: executives, hint: 'C-Level' },
+    { label: 'Board Members', value: boardMembers, hint: 'Active' },
+    { label: 'Key Partnerships', value: partners, hint: 'Strategic' },
+  ]
+}
+
+function buildStakeholderGroups(
+  executives: number,
+  boardMembers: number,
+  investors: number,
+  partners: number,
+  otherGroups: number
+): StakeholdersOverview['groups'] {
+  const segments = [
+    { name: 'Executive Leadership', count: executives },
+    { name: 'Board of Directors', count: boardMembers },
+    { name: 'Investors', count: investors },
+    { name: 'Partners', count: partners },
+    { name: 'Other Key Contacts', count: otherGroups },
+  ].filter((segment) => segment.count > 0)
+
+  const total = segments.reduce((sum, segment) => sum + segment.count, 0) || 1
+  return segments.map((segment) => ({
+    name: segment.name,
+    count: segment.count,
+    percent: Math.round((segment.count / total) * 100),
+  }))
+}
+
+function mergeLinkedinFromStakeholders(
+  overview: StakeholdersOverview,
+  stakeholders: Stakeholder[]
+): StakeholdersOverview {
+  const profiles = new Map<string, string>()
+  for (const person of stakeholders) {
+    if (person.linkedin_url?.trim()) {
+      profiles.set(normalizePersonName(person.name), person.linkedin_url)
+    }
+  }
+
+  const withLinkedin = <T extends { name: string; linkedin_url?: string }>(item: T): T => {
+    if (item.linkedin_url?.trim()) return item
+    const direct = profiles.get(normalizePersonName(item.name))
+    if (direct) return { ...item, linkedin_url: direct }
+    const normalized = normalizePersonName(item.name)
+    for (const [profileName, linkedin] of profiles.entries()) {
+      if (profileName.includes(normalized) || normalized.includes(profileName)) {
+        return { ...item, linkedin_url: linkedin }
+      }
+    }
+    return item
+  }
+
+  return {
+    ...overview,
+    executives: overview.executives.map(withLinkedin),
+    board_members: overview.board_members.map(withLinkedin),
+  }
+}
+
+function buildOtherGroupsFromStructured(structured: StructuredReport): StakeholdersOverview['other_groups'] {
+  const snap = structured.company_snapshot
+  const commercial = structured.commercial_profile
+  const groups: StakeholdersOverview['other_groups'] = []
+
+  if (snap.employees?.trim()) {
+    groups.push({ label: 'Employees', description: snap.employees })
+  }
+  if (commercial.customers?.trim()) {
+    groups.push({ label: 'Customers', description: commercial.customers })
+  }
+  if (commercial.developers?.trim()) {
+    groups.push({ label: 'Developers', description: commercial.developers })
+  }
+
+  return groups
 }
 
 function enrichStakeholdersOverview(overview: StakeholdersOverview): StakeholdersOverview {
@@ -531,105 +632,70 @@ function enrichStakeholdersOverview(overview: StakeholdersOverview): Stakeholder
     ...overview,
     executives: overview.executives.map((executive) => ({
       ...executive,
-      linkedin_url: executive.linkedin_url || undefined,
+      linkedin_url: executive.linkedin_url?.trim() || undefined,
+      focus_areas: executive.focus_areas ?? [],
+      background: executive.background ?? '',
     })),
     board_members: overview.board_members.map((member) => ({
       ...member,
-      linkedin_url: member.linkedin_url || undefined,
+      linkedin_url: member.linkedin_url?.trim() || undefined,
     })),
-    investors: overview.investors.map((investor) =>
-      enrichEntityStakeholder({ ...investor, type: investor.type ?? 'investor' })
-    ),
-    partners: overview.partners.map((partner) =>
-      enrichEntityStakeholder({ ...partner, type: partner.type ?? 'partner' })
-    ),
+    investors: overview.investors.map((investor) => ({
+      ...investor,
+      type: investor.type ?? 'investor',
+      website: investor.website?.trim() || undefined,
+    })),
+    partners: overview.partners.map((partner) => ({
+      ...partner,
+      type: partner.type ?? 'partner',
+      website: partner.website?.trim() || undefined,
+    })),
   }
 }
 
 export function buildStakeholdersOverview(structured: StructuredReport): StakeholdersOverview {
+  const stakeholders = structured.stakeholders ?? []
+
   if (structured.stakeholders_overview) {
-    return enrichStakeholdersOverview(structured.stakeholders_overview)
+    return enrichStakeholdersOverview(
+      mergeLinkedinFromStakeholders(structured.stakeholders_overview, stakeholders)
+    )
   }
 
-  const people = structured.stakeholders
-  const snap = structured.company_snapshot
-  const commercial = structured.commercial_profile
-
-  const executives: StakeholdersOverview['executives'] = people.map((person) => ({
-    name: person.name,
-    title: person.title,
-    tag: person.tag,
-    focus_areas: person.focus_areas?.length
-      ? person.focus_areas
-      : [person.why_matters.slice(0, 40), 'Strategic decisions', 'Cross-functional leadership'],
-    background: person.background ?? person.why_matters,
-    linkedin_url: person.linkedin_url,
-  }))
-
-  const boardMembers = people
-    .filter((p) => /board|chair|director/i.test(p.title))
-    .slice(0, 5)
-    .map((p) => ({
-      name: p.name,
-      role: p.title,
-      linkedin_url: p.linkedin_url,
+  const boardMembers = stakeholders
+    .filter(isBoardStakeholder)
+    .map((person) => ({
+      name: person.name,
+      role: person.title,
+      linkedin_url: person.linkedin_url || undefined,
     }))
 
-  const competitors = structured.company_overview?.competitors ?? []
-  const defaultInvestors = [
-    { name: 'Sequoia Capital', type: 'investor' as const, website: 'sequoiacap.com' },
-    { name: 'Andreessen Horowitz', type: 'investor' as const, website: 'a16z.com' },
-    { name: 'General Catalyst', type: 'investor' as const, website: 'generalcatalyst.com' },
-  ]
-  const defaultPartners = competitors.length
-    ? competitors.slice(0, 5).map((name) => ({
-        name,
-        type: 'partner' as const,
-        website: guessEntityDomain(name) ?? undefined,
-      }))
-    : [
-        { name: 'Shopify', type: 'partner' as const, website: 'shopify.com' },
-        { name: 'Salesforce', type: 'partner' as const, website: 'salesforce.com' },
-        { name: 'AWS', type: 'partner' as const, website: 'aws.amazon.com' },
-        { name: 'Microsoft', type: 'partner' as const, website: 'microsoft.com' },
-      ]
+  const executives = stakeholders
+    .filter((person) => !isBoardStakeholder(person))
+    .map(stakeholderToExecutive)
+
+  const otherGroups = buildOtherGroupsFromStructured(structured)
 
   return enrichStakeholdersOverview({
-    summary_counts: [
-      { label: 'Key Stakeholders Identified', value: Math.max(people.length + 8, 12), hint: 'Across all groups' },
-      { label: 'Executive Leaders', value: executives.length || 3, hint: 'C-Level' },
-      { label: 'Board Members', value: boardMembers.length || 2, hint: 'Active' },
-      { label: 'Key Partnerships', value: 4, hint: 'Strategic' },
-    ],
-    groups: [
-      { name: 'Executive Leadership', percent: 35, count: executives.length || 3 },
-      { name: 'Board of Directors', percent: 20, count: boardMembers.length || 2 },
-      { name: 'Investors', percent: 15, count: 3 },
-      { name: 'Partners', percent: 20, count: 4 },
-      { name: 'Other Key Contacts', percent: 10, count: 2 },
-    ],
-    executives: executives.length
-      ? executives
-      : [
-          {
-            name: 'Executive Team',
-            title: 'Leadership',
-            focus_areas: ['Strategy', 'Operations', 'Growth'],
-            background: `Leadership team guiding ${structured.header.company_name}.`,
-          },
-        ],
-    board_members: boardMembers.length
-      ? boardMembers
-      : [{ name: 'Board Member', role: 'Director' }],
-    investors: defaultInvestors,
-    partners: defaultPartners,
-    other_groups: [
-      { label: 'Employees', description: snap.employees || 'Growing global team' },
-      { label: 'Customers', description: commercial.customers ?? 'Enterprise and SMB customers' },
-      { label: 'Developers', description: commercial.developers ?? 'Developer community and API users' },
-      { label: 'Regulators', description: 'Industry and financial regulators' },
-      { label: 'Media', description: 'Industry press and analysts' },
-    ],
+    summary_counts: buildStakeholderSummaryCounts(
+      executives.length,
+      boardMembers.length,
+      0,
+      0,
+      otherGroups.length
+    ),
+    groups: buildStakeholderGroups(
+      executives.length,
+      boardMembers.length,
+      0,
+      0,
+      otherGroups.length
+    ),
+    executives,
+    board_members: boardMembers,
+    investors: [],
+    partners: [],
+    other_groups: otherGroups,
   })
 }
 
@@ -664,9 +730,7 @@ export function getStructuredReport(
     structured.business_signals = buildBusinessSignals(structured)
   }
 
-  if (!structured.stakeholders_overview) {
-    structured.stakeholders_overview = buildStakeholdersOverview(structured)
-  }
+  structured.stakeholders_overview = buildStakeholdersOverview(structured)
 
   return structured
 }

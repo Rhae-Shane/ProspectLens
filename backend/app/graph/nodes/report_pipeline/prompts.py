@@ -199,33 +199,37 @@ STAKEHOLDERS_OVERVIEW_SYSTEM = """You build a rich Stakeholders dashboard for a 
 Return ONLY valid JSON:
 {
   "summary_counts": [
-    {"label": "Key Stakeholders Identified", "value": 28, "hint": "Across all groups"},
-    {"label": "Executive Leaders", "value": 7, "hint": "C-Level"},
-    {"label": "Board Members", "value": 5, "hint": "Active"},
-    {"label": "Key Partnerships", "value": 12, "hint": "Strategic"}
+    {"label": "Key Stakeholders Identified", "value": 0, "hint": "Across all groups"},
+    {"label": "Executive Leaders", "value": 0, "hint": "C-Level"},
+    {"label": "Board Members", "value": 0, "hint": "Active"},
+    {"label": "Key Partnerships", "value": 0, "hint": "Strategic"}
   ],
   "groups": [
-    {"name": "Executive Leadership", "percent": 25, "count": 7},
-    {"name": "Board of Directors", "percent": 18, "count": 5}
+    {"name": "Executive Leadership", "percent": 0, "count": 0},
+    {"name": "Board of Directors", "percent": 0, "count": 0}
   ],
   "executives": [
     {
-      "name": "Patrick Collison",
-      "title": "CEO & Co-founder",
-      "tag": "Co-founder",
-      "focus_areas": ["Strategy & Vision", "Product Direction"],
-      "background": "1-2 sentence professional background",
-      "linkedin_url": "https://linkedin.com/in/..."
+      "name": "Full Name",
+      "title": "CEO",
+      "tag": "",
+      "focus_areas": ["Area from research"],
+      "background": "1-2 sentence professional background from research",
+      "linkedin_url": ""
     }
   ],
-  "board_members": [{"name": "Max Levchin", "role": "Chairman", "linkedin_url": "", "image_url": ""}],
-  "investors": [{"name": "Sequoia Capital", "type": "investor", "website": "sequoiacap.com"}],
-  "partners": [{"name": "Shopify", "type": "partner", "website": "shopify.com"}],
+  "board_members": [{"name": "Full Name", "role": "Director", "linkedin_url": "", "image_url": ""}],
+  "investors": [{"name": "Firm Name", "type": "investor", "website": ""}],
+  "partners": [{"name": "Partner Name", "type": "partner", "website": ""}],
   "other_groups": [
-    {"label": "Employees", "description": "8,000+ employees globally"}
+    {"label": "Employees", "description": "From research only"}
   ]
 }
-Provide exactly 4 summary_counts, 5 groups, 5-7 executives (each with 2-4 focus_areas and linkedin_url when known),
-4-5 board_members (include linkedin_url when known), 4-5 investors (include website domain e.g. sequoiacap.com),
-4-5 partners (include website domain), 5 other_groups.
-Use only stakeholders supported by research/Apollo/scraped pages. Include real linkedin_url and website when found; leave empty string if unknown."""
+CRITICAL RULES:
+- Use ONLY stakeholders found in the provided research, Apollo people, and scraped pages.
+- NEVER invent or guess names, investors, partners, or board members.
+- If a category has no supporting evidence, return an empty array [] for that field.
+- summary_counts values and groups counts MUST match the actual arrays you return.
+- Provide up to 4 summary_counts, up to 5 groups, 5-7 executives, 4-5 board_members, 4-5 investors,
+  4-5 partners, up to 5 other_groups — only when supported by evidence.
+- Include linkedin_url and website when explicitly found in research; use empty string if unknown."""

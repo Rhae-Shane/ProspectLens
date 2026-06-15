@@ -13,6 +13,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { buildStakeholdersOverview } from '@/lib/structured-report-utils'
 import { cn, formatDisplayTimestamp } from '@/lib/utils'
 import { EntityLogo } from '@/prospectlens/EntityLogo'
@@ -39,6 +45,17 @@ interface StakeholdersDashboardProps {
   structured: StructuredReport
   session: ReportSessionMeta
   updatedAt?: string
+}
+
+function SectionEmpty({ title, description }: { title: string; description: string }) {
+  return (
+    <Empty className="border border-dashed py-8">
+      <EmptyHeader>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
 }
 
 export function StakeholdersDashboard({
@@ -110,29 +127,38 @@ export function StakeholdersDashboard({
             <CardTitle className="text-base">Stakeholder Groups</CardTitle>
           </CardHeader>
           <CardContent className="grid items-center gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square h-44">
-              <PieChart>
-                <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={75}>
-                  {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
+            {overview.groups.length > 0 ? (
+              <>
+                <ChartContainer config={chartConfig} className="mx-auto aspect-square h-44">
+                  <PieChart>
+                    <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={75}>
+                      {chartData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <ul className="space-y-2">
+                  {overview.groups.map((group, index) => (
+                    <li key={group.name} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="size-2.5 rounded-full"
+                          style={{ backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }}
+                        />
+                        {group.name}
+                      </span>
+                      <span className="font-medium tabular-nums">{group.percent}%</span>
+                    </li>
                   ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <ul className="space-y-2">
-              {overview.groups.map((group, index) => (
-                <li key={group.name} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: GROUP_COLORS[index % GROUP_COLORS.length] }}
-                    />
-                    {group.name}
-                  </span>
-                  <span className="font-medium tabular-nums">{group.percent}%</span>
-                </li>
-              ))}
-            </ul>
+                </ul>
+              </>
+            ) : (
+              <SectionEmpty
+                title="No stakeholder groups yet"
+                description="Re-run research to populate stakeholder groups from agent findings."
+              />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -142,7 +168,9 @@ export function StakeholdersDashboard({
           <CardTitle className="text-base">Key People — Executive Leadership</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          {overview.executives.length > 0 ? (
+            <>
+              <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground text-xs">
                 <th className="pb-3 pr-4 font-medium">Name</th>
@@ -201,10 +229,17 @@ export function StakeholdersDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
-          <button type="button" className="mt-3 text-primary text-sm hover:underline">
-            View all executives ({overview.executives.length}) →
-          </button>
+              </table>
+              <button type="button" className="mt-3 text-primary text-sm hover:underline">
+                View all executives ({overview.executives.length}) →
+              </button>
+            </>
+          ) : (
+            <SectionEmpty
+              title="No executives identified"
+              description="Executive leadership will appear here after the research agent finds verified people."
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -217,25 +252,32 @@ export function StakeholdersDashboard({
             </button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {overview.board_members.map((member, index) => (
-              <div key={member.name} className="flex items-center gap-3">
-                <PersonAvatar
-                  name={member.name}
-                  linkedinUrl={member.linkedin_url}
-                  className="size-9"
-                  fallbackClassName={cn(
-                    'text-xs',
-                    index % 3 === 0 && 'bg-blue-500/10 text-blue-700',
-                    index % 3 === 1 && 'bg-purple-500/10 text-purple-700',
-                    index % 3 === 2 && 'bg-emerald-500/10 text-emerald-700'
-                  )}
-                />
-                <div>
-                  <p className="font-medium text-sm">{member.name}</p>
-                  <p className="text-muted-foreground text-xs">{member.role}</p>
+            {overview.board_members.length > 0 ? (
+              overview.board_members.map((member, index) => (
+                <div key={member.name} className="flex items-center gap-3">
+                  <PersonAvatar
+                    name={member.name}
+                    linkedinUrl={member.linkedin_url}
+                    className="size-9"
+                    fallbackClassName={cn(
+                      'text-xs',
+                      index % 3 === 0 && 'bg-blue-500/10 text-blue-700',
+                      index % 3 === 1 && 'bg-purple-500/10 text-purple-700',
+                      index % 3 === 2 && 'bg-emerald-500/10 text-emerald-700'
+                    )}
+                  />
+                  <div>
+                    <p className="font-medium text-sm">{member.name}</p>
+                    <p className="text-muted-foreground text-xs">{member.role}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <SectionEmpty
+                title="No board members found"
+                description="Board members are populated from research and leadership page scrapes."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -247,12 +289,19 @@ export function StakeholdersDashboard({
             </button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {overview.investors.map((investor) => (
-              <div key={investor.name} className="flex items-center gap-3 rounded-lg border bg-muted/10 p-3">
-                <EntityLogo name={investor.name} website={investor.website} type="investor" size="md" />
-                <p className="font-medium text-sm">{investor.name}</p>
-              </div>
-            ))}
+            {overview.investors.length > 0 ? (
+              overview.investors.map((investor) => (
+                <div key={investor.name} className="flex items-center gap-3 rounded-lg border bg-muted/10 p-3">
+                  <EntityLogo name={investor.name} website={investor.website} type="investor" size="md" />
+                  <p className="font-medium text-sm">{investor.name}</p>
+                </div>
+              ))
+            ) : (
+              <SectionEmpty
+                title="No investors identified"
+                description="Investors appear when the research agent finds funding or investor mentions."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -264,28 +313,42 @@ export function StakeholdersDashboard({
             </button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {overview.partners.map((partner) => (
-              <div key={partner.name} className="flex items-center gap-3 rounded-lg border bg-muted/10 p-3">
-                <EntityLogo name={partner.name} website={partner.website} type="partner" size="md" />
-                <p className="font-medium text-sm">{partner.name}</p>
-              </div>
-            ))}
+            {overview.partners.length > 0 ? (
+              overview.partners.map((partner) => (
+                <div key={partner.name} className="flex items-center gap-3 rounded-lg border bg-muted/10 p-3">
+                  <EntityLogo name={partner.name} website={partner.website} type="partner" size="md" />
+                  <p className="font-medium text-sm">{partner.name}</p>
+                </div>
+              ))
+            ) : (
+              <SectionEmpty
+                title="No partners identified"
+                description="Strategic partners are listed when found in research or partnership announcements."
+              />
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div>
         <h2 className="mb-3 font-semibold text-base">Other Key Stakeholders</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {overview.other_groups.map((group) => (
-            <Card key={group.label} className="bg-muted/10">
-              <CardContent className="space-y-2 p-4">
-                <p className="font-medium text-sm">{group.label}</p>
-                <p className="text-muted-foreground text-xs leading-relaxed">{group.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {overview.other_groups.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {overview.other_groups.map((group) => (
+              <Card key={group.label} className="bg-muted/10">
+                <CardContent className="space-y-2 p-4">
+                  <p className="font-medium text-sm">{group.label}</p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">{group.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <SectionEmpty
+            title="No other stakeholder groups"
+            description="Additional groups like employees or customers appear when available in company snapshot data."
+          />
+        )}
       </div>
     </div>
   )

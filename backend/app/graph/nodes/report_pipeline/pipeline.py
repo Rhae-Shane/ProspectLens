@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 from app.graph.qc_utils import unknowns_from_coverage
@@ -112,6 +113,43 @@ async def _enrich_stakeholder_research(
     return "\n".join(extra_parts)[:12000], apollo_people, total_tokens, total_cost
 
 
+def _normalize_person_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _merge_stakeholder_profiles(
+    overview: dict[str, Any],
+    apollo_people: list[dict[str, Any]],
+    stakeholders: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach LinkedIn URLs from Apollo and stakeholder research when the overview is missing them."""
+    profiles: dict[str, str] = {}
+    for person in [*apollo_people, *stakeholders]:
+        if not isinstance(person, dict):
+            continue
+        name = str(person.get("name", "")).strip()
+        linkedin = str(person.get("linkedin_url", "")).strip()
+        if name and linkedin:
+            profiles[_normalize_person_name(name)] = linkedin
+
+    for section in ("executives", "board_members"):
+        for item in overview.get(section) or []:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("linkedin_url", "")).strip():
+                continue
+            normalized = _normalize_person_name(str(item.get("name", "")))
+            if normalized in profiles:
+                item["linkedin_url"] = profiles[normalized]
+                continue
+            for profile_name, linkedin in profiles.items():
+                if profile_name in normalized or normalized in profile_name:
+                    item["linkedin_url"] = linkedin
+                    break
+
+    return overview
+
+
 async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], int, float]:
     """Run multi-step report assembly. Returns report, node_outputs patch, tokens, cost."""
     analysis = state.get("business_signals") or {}
@@ -209,6 +247,11 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     total_tokens += tokens
     total_cost += cost
     stakeholders_overview = _parse_json_payload(stakeholders_overview_result)
+    stakeholders_overview = _merge_stakeholder_profiles(
+        stakeholders_overview,
+        apollo_people,
+        stakeholders,
+    )
 
     execs = stakeholders_overview.get("executives") or []
     if execs:
