@@ -68,6 +68,8 @@ def normalize_report_content(content: dict[str, Any]) -> dict[str, Any]:
             normalized[key] = [value] if value else []
         else:
             normalized[key] = [str(value)]
+    if "structured" in content and isinstance(content["structured"], dict):
+        normalized["structured"] = content["structured"]
     return normalized
 
 
@@ -87,6 +89,7 @@ class ReportContent(BaseModel):
     outreach_strategy: str
     unknowns: list[str]
     sources: list[SourceItem]
+    structured: Optional[dict[str, Any]] = None
 
 
 class SessionCreate(BaseModel):

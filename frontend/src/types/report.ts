@@ -14,6 +14,7 @@ export interface ReportContent {
   outreach_strategy: string
   unknowns: string[]
   sources: SourceItem[]
+  structured?: import('./structured-report').StructuredReport
 }
 
 export interface Session {

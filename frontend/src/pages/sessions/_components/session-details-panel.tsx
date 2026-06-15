@@ -33,7 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
 import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
-import { ReportViewer } from '@/prospectlens/ReportViewer'
+import { ReportSectionsView } from '@/prospectlens/report-briefing/ReportSectionsView'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { WorkflowProgress } from '@/prospectlens/WorkflowProgress'
 import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
@@ -429,7 +429,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
               <>
                 <ViewSectionHeader
                   title="Research Report"
-                  description="Generated company briefing from the research pipeline."
+                  description="Browse each section of the company briefing."
                   action={
                     <div className="flex flex-wrap gap-2">
                       {qualityScore != null && (
@@ -457,7 +457,14 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                   }
                 />
                 {session.report ? (
-                  <ReportViewer report={session.report} />
+                  <ReportSectionsView
+                    report={session.report}
+                    session={{
+                      company_name: session.company_name,
+                      website: session.website,
+                      objective: session.objective,
+                    }}
+                  />
                 ) : (
                   <div className="grid min-h-48 place-items-center rounded-xl border border-dashed text-muted-foreground text-sm">
                     Report will appear when the workflow completes.
