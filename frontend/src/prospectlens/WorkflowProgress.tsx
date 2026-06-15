@@ -1,6 +1,10 @@
+import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, Circle, Loader2, XCircle, RotateCcw } from 'lucide-react'
 import type { WorkflowEvent } from '@/types/report'
+import { Badge } from '@/components/ui/badge'
+import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
+import { providerColor, providerLabel } from '@/lib/source-utils'
 
 const STEPS = [
   { id: 'planner', label: 'Planner' },
@@ -18,6 +22,28 @@ function getStepStatus(stepId: string, events: WorkflowEvent[]) {
   return 'pending'
 }
 
+function getStepMeta(stepId: string, events: WorkflowEvent[]): string | null {
+  const completed = [...events]
+    .reverse()
+    .find((e) => e.node === stepId && e.event_type === 'completed')
+  if (!completed) return null
+
+  const data = (completed.payload.node_outputs ?? completed.payload) as Record<string, unknown>
+
+  if (stepId === 'research') {
+    if (data.cached) return 'cached'
+    const count = data.results_count
+    return count != null ? `${count} results` : null
+  }
+  if (stepId === 'quality_check' && data.quality_score != null) {
+    return `${(Number(data.quality_score) * 100).toFixed(0)}%`
+  }
+  if (stepId === 'analyze' && data.signals_count != null) {
+    return `${data.signals_count} signals`
+  }
+  return null
+}
+
 interface Props {
   events: WorkflowEvent[]
   workflowStatus: string
@@ -28,6 +54,11 @@ export function WorkflowProgress({ events, workflowStatus }: Props) {
     (e) => e.node === 'recovery' && e.event_type === 'completed'
   ).length
 
+  const providers = useMemo(
+    () => extractResearchProviders(events.filter((e) => e.node !== 'workflow')),
+    [events]
+  )
+
   return (
     <div className="space-y-4">
       {retryCount > 0 && (
@@ -36,13 +67,30 @@ export function WorkflowProgress({ events, workflowStatus }: Props) {
           Quality check triggered {retryCount} research retry{retryCount > 1 ? 'ies' : ''}
         </div>
       )}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-between">
+
+      {providers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Data sources:</span>
+          {providers.map((provider) => (
+            <Badge
+              key={provider}
+              variant="outline"
+              className={cn('text-[10px] capitalize', providerColor(provider))}
+            >
+              {providerLabel(provider)}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
         {STEPS.map((step, i) => {
           const status = getStepStatus(step.id, events)
+          const meta = getStepMeta(step.id, events)
           const isLast = i === STEPS.length - 1
           return (
             <div key={step.id} className="flex items-center gap-2 sm:flex-1">
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
                 {status === 'completed' && (
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
                 )}
@@ -55,17 +103,22 @@ export function WorkflowProgress({ events, workflowStatus }: Props) {
                 {status === 'pending' && (
                   <Circle className="h-5 w-5 shrink-0 text-muted-foreground/40" />
                 )}
-                <span
-                  className={cn(
-                    'truncate text-sm font-medium',
-                    status === 'running' && 'text-primary',
-                    status === 'completed' && 'text-green-700 dark:text-green-300',
-                    status === 'failed' && 'text-destructive',
-                    status === 'pending' && 'text-muted-foreground'
+                <div className="min-w-0">
+                  <span
+                    className={cn(
+                      'block truncate text-sm font-medium',
+                      status === 'running' && 'text-primary',
+                      status === 'completed' && 'text-green-700 dark:text-green-300',
+                      status === 'failed' && 'text-destructive',
+                      status === 'pending' && 'text-muted-foreground'
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                  {meta && status === 'completed' && (
+                    <span className="text-[10px] text-muted-foreground">{meta}</span>
                   )}
-                >
-                  {step.label}
-                </span>
+                </div>
               </div>
               {!isLast && (
                 <div

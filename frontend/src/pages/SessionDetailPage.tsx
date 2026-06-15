@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
@@ -7,11 +8,14 @@ import { ReportViewer } from '@/prospectlens/ReportViewer'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
+import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
+import { providerColor, providerLabel } from '@/lib/source-utils'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
-import { formatCost } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, RefreshCw, AlertCircle, ExternalLink, Sparkles } from 'lucide-react'
+import { formatCost, cn } from '@/lib/utils'
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -63,6 +67,21 @@ export function SessionDetailPage() {
   }
 
   const allEvents = events.length > 0 ? events : []
+
+  const researchProviders = useMemo(
+    () => extractResearchProviders(allEvents),
+    [allEvents]
+  )
+
+  const qualityScore = useMemo(() => {
+    const qc = [...allEvents]
+      .reverse()
+      .find((e) => e.node === 'quality_check' && e.event_type === 'completed')
+    if (!qc) return null
+    const data = (qc.payload.node_outputs ?? qc.payload) as Record<string, unknown>
+    const score = Number(data.quality_score ?? 0)
+    return score > 0 ? score : null
+  }, [allEvents])
 
   return (
     <div className="space-y-6">
@@ -127,8 +146,39 @@ export function SessionDetailPage() {
 
       {session.report && (
         <Card>
-          <CardHeader>
-            <CardTitle>Research Report</CardTitle>
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Research Report
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Signal-linked discovery questions, outreach playbook, and grouped evidence
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {qualityScore != null && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    qualityScore >= 0.75
+                      ? 'border-green-200 bg-green-500/10 text-green-700 dark:text-green-300'
+                      : 'border-amber-200 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                  )}
+                >
+                  Research quality {(qualityScore * 100).toFixed(0)}%
+                </Badge>
+              )}
+              {researchProviders.map((provider) => (
+                <Badge
+                  key={provider}
+                  variant="outline"
+                  className={cn('text-[10px] capitalize', providerColor(provider))}
+                >
+                  {providerLabel(provider)}
+                </Badge>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
             <ReportViewer report={session.report} />
