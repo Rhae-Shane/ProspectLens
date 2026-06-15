@@ -15,10 +15,15 @@ class TavilyClient:
 
     def __init__(self) -> None:
         self.api_key = settings.tavily_api_key
-        self.search_depth = settings.tavily_search_depth
-        self.max_results = settings.tavily_max_results
 
-    async def search(self, query: str, context: str = "") -> tuple[dict[str, Any], int, float]:
+    async def search(
+        self,
+        query: str,
+        context: str = "",
+        *,
+        search_depth: str = "basic",
+        max_results: int = 5,
+    ) -> tuple[dict[str, Any], int, float]:
         if not self.api_key:
             return self._mock_search(query, context)
 
@@ -27,8 +32,8 @@ class TavilyClient:
 
         payload: dict[str, Any] = {
             "query": search_query[:4000],
-            "search_depth": self.search_depth,
-            "max_results": self.max_results,
+            "search_depth": search_depth,
+            "max_results": max_results,
             "include_answer": True,
         }
 

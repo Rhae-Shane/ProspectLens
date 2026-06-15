@@ -8,6 +8,11 @@ create a structured research plan as JSON with these keys:
 - signal_categories: list of business signal types to look for
 - report_outline: list of section names to cover
 - focus_areas: list of 2-3 priority investigation areas
+- search_config: object you choose based on the company and objective:
+  - tavily_search_depth: "basic", "advanced", or "fast" (deeper for complex/unknown companies)
+  - tavily_max_results: integer 3-10 (more sources when the topic is broad or high-stakes)
+  - news_days_back: integer 7-90 (shorter for fast-moving sectors, longer for strategic context)
+  - news_max_results: integer 3-15 (more when recent news is critical to the objective)
 
 Return ONLY valid JSON, no markdown."""
 
