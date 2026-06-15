@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { applyThemeMode } from "@/lib/preferences/theme-utils";
 import { persistPreference } from "@/lib/preferences/preferences-storage";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
@@ -14,12 +15,13 @@ export function ThemeSwitcher() {
     const currentIndex = THEME_CYCLE.indexOf(themeMode);
     const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
 
+    applyThemeMode(nextTheme);
     setThemeMode(nextTheme);
     void persistPreference("theme_mode", nextTheme);
   };
 
   return (
-    <Button size="icon" onClick={cycleTheme} aria-label={`Current theme: ${themeMode}. Click to cycle themes`}>
+    <Button type="button" size="icon" variant="outline" onClick={cycleTheme} aria-label={`Current theme: ${themeMode}. Click to cycle themes`}>
       {/* SYSTEM */}
       <Monitor className="hidden [html[data-theme-mode=system]_&]:block" />
 

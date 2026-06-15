@@ -2,28 +2,26 @@ import type { ReactNode } from 'react'
 
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { PREFERENCE_DEFAULTS } from '@/lib/preferences/preferences-config'
-import { ThemeBootScript } from '@/scripts/theme-boot'
+import { readPreferencesFromDom } from '@/lib/preferences/bootstrap-preferences'
 import { PreferencesStoreProvider } from '@/stores/preferences/preferences-provider'
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  const { theme_mode, theme_preset, content_layout, navbar_style, font } = PREFERENCE_DEFAULTS
+  const prefs = readPreferencesFromDom()
 
   return (
-    <>
-      <ThemeBootScript />
-      <TooltipProvider>
-        <PreferencesStoreProvider
-          themeMode={theme_mode}
-          themePreset={theme_preset}
-          contentLayout={content_layout}
-          navbarStyle={navbar_style}
-          font={font}
-        >
-          {children}
-          <Toaster />
-        </PreferencesStoreProvider>
-      </TooltipProvider>
-    </>
+    <TooltipProvider>
+      <PreferencesStoreProvider
+        themeMode={prefs.theme_mode!}
+        themePreset={prefs.theme_preset!}
+        contentLayout={prefs.content_layout!}
+        navbarStyle={prefs.navbar_style!}
+        font={prefs.font!}
+        sidebarVariant={prefs.sidebar_variant!}
+        sidebarCollapsible={prefs.sidebar_collapsible!}
+      >
+        {children}
+        <Toaster />
+      </PreferencesStoreProvider>
+    </TooltipProvider>
   )
 }

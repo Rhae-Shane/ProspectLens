@@ -13,10 +13,18 @@ export function setClientCookie(key: string, value: string, days = 7) {
 }
 
 export function getClientCookie(key: string) {
-  return document.cookie
+  const match = document.cookie
     .split("; ")
-    .find((row) => row.startsWith(`${key}=`))
-    ?.split("=")[1];
+    .find((row) => row.startsWith(`${key}=`));
+
+  if (!match) return undefined;
+
+  const value = match.slice(key.length + 1);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export function deleteClientCookie(key: string) {

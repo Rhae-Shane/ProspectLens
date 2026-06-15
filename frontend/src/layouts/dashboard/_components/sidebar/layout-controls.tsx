@@ -17,7 +17,7 @@ import {
 import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
 import { persistPreference } from "@/lib/preferences/preferences-storage";
 import { THEME_PRESET_OPTIONS, type ThemeMode, type ThemePreset } from "@/lib/preferences/theme";
-import { applyThemePreset } from "@/lib/preferences/theme-utils";
+import { applyThemeMode, applyThemePreset } from "@/lib/preferences/theme-utils";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
 export function LayoutControls() {
@@ -45,6 +45,7 @@ export function LayoutControls() {
 
   const onThemeModeChange = (mode: ThemeMode | "") => {
     if (!mode) return;
+    applyThemeMode(mode);
     setThemeMode(mode);
     void persistPreference("theme_mode", mode);
   };
@@ -97,7 +98,7 @@ export function LayoutControls() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="icon">
+        <Button type="button" size="icon" variant="outline" aria-label="Open layout preferences">
           <Settings />
         </Button>
       </PopoverTrigger>
