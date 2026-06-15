@@ -8,6 +8,7 @@ import {
   Gauge,
   GraduationCap,
   Home,
+  KeyRound,
   Kanban,
   LayoutDashboard,
   ListTodo,
@@ -76,6 +77,17 @@ export const sidebarItems: NavGroup[] = [
         title: "Follow-up Chat",
         url: "/follow-up-chat",
         icon: MessageSquare,
+      },
+    ],
+  },
+  {
+    id: 5,
+    label: "Integrations",
+    items: [
+      {
+        title: "API Usage",
+        url: "/api-usage",
+        icon: KeyRound,
       },
     ],
   },

@@ -9,6 +9,7 @@ import { NewSessionPage } from '@/pages/NewSessionPage'
 import { ReportsPage } from '@/pages/ReportsPage'
 import { ReportBriefingPage } from '@/pages/ReportBriefingPage'
 import { FollowUpChatPage } from '@/pages/FollowUpChatPage'
+import { ApiUsagePage } from '@/pages/api-usage/page'
 import { SessionsPage } from '@/pages/SessionsPage'
 
 import AuthV2Layout from '@/pages/auth/v2/layout'
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="reports/:id/briefing" element={<ReportBriefingPage />} />
             <Route path="follow-up-chat" element={<FollowUpChatPage />} />
             <Route path="follow-up-chat/:id" element={<FollowUpChatPage />} />
+            <Route path="api-usage" element={<ApiUsagePage />} />
           </Route>
 
           <Route path="auth/v1/login" element={<AuthV1LoginPage />} />

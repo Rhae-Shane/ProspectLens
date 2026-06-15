@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     max_retries: int = 2
     research_cache_ttl: int = 86400
     report_context_ttl: int = 604800
+    openai_monthly_budget_usd: float = 5.0
+    tavily_monthly_budget_usd: float = 5.0
+    perplexity_monthly_budget_usd: float = 5.0
+    newsapi_monthly_budget_usd: float = 0.0
+    firecrawl_monthly_budget_usd: float = 5.0
+    apollo_monthly_budget_usd: float = 5.0
+    producthunt_monthly_budget_usd: float = 0.0
 
     @property
     def cors_origin_list(self) -> List[str]:

@@ -1,3 +1,4 @@
+import type { ApiKeyUsageResponse } from '@/types/api-usage'
 import type {
   ChatMessage,
   ChatTool,
@@ -53,6 +54,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message, tools: tools?.length ? tools : undefined }),
     }),
+
+  getApiKeyUsage: () => request<ApiKeyUsageResponse>('/api/v1/usage/api-keys'),
 }
 
 export function getEventStreamUrl(sessionId: string) {
