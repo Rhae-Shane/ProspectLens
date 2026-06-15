@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from app.graph.research_context import serialize_research_for_llm
 from app.providers import openai_client
 
 ANALYZE_SYSTEM = """You are a business analyst extracting structured insights from research data.
@@ -21,8 +22,8 @@ Use only evidence from the research. Return ONLY valid JSON."""
 
 
 async def analyze_node(state: dict[str, Any]) -> dict[str, Any]:
-    research_text = json.dumps(state.get("raw_research", []), indent=2)
-    plan = json.dumps(state.get("research_plan", {}), indent=2)
+    research_text = serialize_research_for_llm(state.get("raw_research", []))
+    plan = json.dumps(state.get("research_plan", {}), indent=2)[:4000]
 
     user_prompt = f"""Company: {state['company_name']}
 Website: {state['website']}

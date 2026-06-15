@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from app.config import get_settings
+from app.graph.research_context import serialize_research_for_llm
 from app.graph.qc_utils import unknowns_from_coverage
 from app.providers import openai_client
 
@@ -30,7 +31,7 @@ async def quality_check_node(state: dict[str, Any]) -> dict[str, Any]:
 Retry Count: {state.get('retry_count', 0)}
 
 Research Data:
-{json.dumps(research, indent=2)[:8000]}
+{serialize_research_for_llm(research, max_total_chars=12000)}
 
 Analysis:
 {json.dumps(analysis, indent=2)[:4000]}

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 import httpx
@@ -30,6 +31,36 @@ class OpenAIClient:
             output_tokens / 1_000_000 * self.output_cost_per_m
         )
 
+    @staticmethod
+    def _repair_json_text(text: str) -> str:
+        """Fix common LLM JSON issues such as malformed \\u escapes."""
+        repaired = re.sub(r"\\u(?![0-9a-fA-F]{4})", r"\\\\u", text)
+        repaired = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", repaired)
+        return repaired
+
+    def _parse_json_response(self, text: str) -> dict[str, Any]:
+        candidates = [text, self._repair_json_text(text)]
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            sliced = text[start:end]
+            candidates.extend([sliced, self._repair_json_text(sliced)])
+
+        last_error: json.JSONDecodeError | None = None
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError as exc:
+                last_error = exc
+                continue
+
+        preview = text[:200]
+        if last_error:
+            raise ValueError(f"Failed to parse JSON from LLM response: {last_error}") from last_error
+        raise ValueError(f"Failed to parse JSON from LLM response: {preview}")
+
     async def complete_json(
         self,
         system_prompt: str,
@@ -55,16 +86,7 @@ class OpenAIClient:
         if text.startswith("```"):
             lines = text.split("\n")
             text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                parsed = json.loads(text[start:end])
-            else:
-                raise ValueError(f"Failed to parse JSON from LLM response: {text[:200]}")
-
+        parsed = self._parse_json_response(text)
         return parsed, total_tokens, cost
 
     async def complete_text(

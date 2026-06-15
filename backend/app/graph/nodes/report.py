@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from app.graph.research_context import serialize_research_for_llm
 from app.graph.qc_utils import unknowns_from_coverage
 from app.providers import openai_client
 from app.schemas import normalize_report_content
@@ -31,7 +32,7 @@ Return ONLY valid JSON."""
 
 
 async def report_generator_node(state: dict[str, Any]) -> dict[str, Any]:
-    research = json.dumps(state.get("raw_research", []), indent=2)[:10000]
+    research = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=14000)
     analysis = json.dumps(state.get("business_signals", {}), indent=2)[:6000]
     qc = state.get("node_outputs", {}).get("quality_check", {})
     qc_unknowns = unknowns_from_coverage(qc.get("section_coverage", {}))
@@ -60,22 +61,38 @@ Generate the complete structured research report."""
     merged_unknowns = list(dict.fromkeys([*qc_unknowns, *[str(u) for u in llm_unknowns if u]]))
     report["unknowns"] = merged_unknowns[:8]
 
-    all_sources = []
-    seen_urls = set()
+    all_sources: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
     for item in state.get("raw_research", []):
         for src in item.get("sources", []):
-            url = src.get("url", "")
+            url = str(src.get("url", "")).strip()
             if url and url not in seen_urls:
                 seen_urls.add(url)
                 all_sources.append(src)
 
-    if "sources" not in report or not report["sources"]:
-        report["sources"] = all_sources[:10]
-    else:
-        for src in all_sources:
-            url = src.get("url", "")
-            if url and url not in {s.get("url") for s in report["sources"]}:
-                report["sources"].append(src)
+    llm_sources = report.get("sources") or []
+    if not isinstance(llm_sources, list):
+        llm_sources = []
+
+    merged_sources: list[dict[str, Any]] = []
+    for src in llm_sources + all_sources:
+        if not isinstance(src, dict):
+            continue
+        url = str(src.get("url", "")).strip()
+        if not url or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        merged_sources.append(
+            {
+                "title": str(src.get("title", url))[:200],
+                "url": url,
+                "snippet": str(src.get("snippet", ""))[:300],
+            }
+        )
+        if len(merged_sources) >= 40:
+            break
+
+    report["sources"] = merged_sources
 
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["report_generator"] = {

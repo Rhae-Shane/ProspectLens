@@ -37,10 +37,33 @@ export function SessionDetailPage() {
   const { data: storedEvents = [] } = useQuery({
     queryKey: ['events', id],
     queryFn: () => api.getEvents(id!),
-    enabled: !!id && !isRunning,
+    enabled: !!id,
+    refetchInterval: isRunning ? 5000 : false,
   })
 
-  const events = sseEvents.length > 0 ? sseEvents : storedEvents
+  const allEvents = useMemo(() => {
+    const byId = new Map<string, (typeof sseEvents)[number]>()
+    for (const event of storedEvents) byId.set(event.id, event)
+    for (const event of sseEvents) byId.set(event.id, event)
+    return [...byId.values()].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+  }, [storedEvents, sseEvents])
+
+  const researchProviders = useMemo(
+    () => extractResearchProviders(allEvents),
+    [allEvents]
+  )
+
+  const qualityScore = useMemo(() => {
+    const qc = [...allEvents]
+      .reverse()
+      .find((e) => e.node === 'quality_check' && e.event_type === 'completed')
+    if (!qc) return null
+    const data = (qc.payload.node_outputs ?? qc.payload) as Record<string, unknown>
+    const score = Number(data.quality_score ?? 0)
+    return score > 0 ? score : null
+  }, [allEvents])
 
   const retryMutation = useMutation({
     mutationFn: () => api.retryWorkflow(id!),
@@ -65,23 +88,6 @@ export function SessionDetailPage() {
       </Alert>
     )
   }
-
-  const allEvents = events.length > 0 ? events : []
-
-  const researchProviders = useMemo(
-    () => extractResearchProviders(allEvents),
-    [allEvents]
-  )
-
-  const qualityScore = useMemo(() => {
-    const qc = [...allEvents]
-      .reverse()
-      .find((e) => e.node === 'quality_check' && e.event_type === 'completed')
-    if (!qc) return null
-    const data = (qc.payload.node_outputs ?? qc.payload) as Record<string, unknown>
-    const score = Number(data.quality_score ?? 0)
-    return score > 0 ? score : null
-  }, [allEvents])
 
   return (
     <div className="space-y-6">

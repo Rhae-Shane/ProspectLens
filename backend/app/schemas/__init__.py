@@ -5,11 +5,34 @@ from uuid import UUID
 from pydantic import BaseModel, Field, HttpUrl
 
 
+def _format_outreach_dict(data: dict[str, Any]) -> str:
+    lines: list[str] = []
+    channel = data.get("recommended_channel")
+    hook = data.get("hook_sentence")
+    if channel:
+        lines.append(f"**Channel:** {channel}")
+    if hook:
+        lines.append(f"**Hook:** {hook}")
+    sequence = data.get("follow_up_sequence")
+    if isinstance(sequence, dict):
+        lines.append("\n**Follow-up sequence:**")
+        for day, message in sequence.items():
+            lines.append(f"- **{day}:** {message}")
+    elif sequence:
+        lines.append(f"\n**Follow-up:** {sequence}")
+    return "\n\n".join(lines) if lines else str(data)
+
+
 def _coerce_report_text(value: Any) -> str:
     if isinstance(value, str):
         return value
     if value is None:
         return ""
+    if isinstance(value, dict):
+        if "recommended_channel" in value or "follow_up_sequence" in value:
+            return _format_outreach_dict(value)
+        lines = [f"- **{k.replace('_', ' ').title()}:** {v}" for k, v in value.items() if v]
+        return "\n".join(lines) if lines else str(value)
     if isinstance(value, list):
         lines: list[str] = []
         for item in value:
