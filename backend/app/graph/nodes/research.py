@@ -4,7 +4,7 @@ from typing import Any
 from app.cache.context_cache import context_cache
 from app.config import get_settings
 from app.graph.search_config import parse_search_config
-from app.providers import firecrawl_client, newsapi_client, perplexity_client, tavily_client
+from app.providers import firecrawl_client, newsapi_client, perplexity_client, producthunt_client, tavily_client
 
 RESEARCH_CONTEXT = "Company: {company}\nWebsite: {website}\nObjective: {objective}"
 settings = get_settings()
@@ -193,10 +193,36 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
 
         return results
 
-    query_results, news_results, firecrawl_results = await asyncio.gather(
+    async def run_producthunt() -> list[tuple[dict[str, Any], int, float]]:
+        if not search_config["producthunt_use_lookup"]:
+            return []
+        if not (
+            settings.producthunt_developer_token
+            or (settings.producthunt_api_key and settings.producthunt_api_secret)
+        ):
+            return []
+
+        try:
+            return [await producthunt_client.lookup_company_launches(company)]
+        except Exception as exc:
+            return [
+                (
+                    {
+                        "query": f"{company} Product Hunt launch history",
+                        "provider": "producthunt",
+                        "content": f"producthunt lookup failed: {exc}",
+                        "sources": [],
+                    },
+                    0,
+                    0.0,
+                )
+            ]
+
+    query_results, news_results, firecrawl_results, producthunt_results = await asyncio.gather(
         asyncio.gather(*[run_query(q) for q in queries]),
         run_news(),
         run_firecrawl(),
+        run_producthunt(),
     )
 
     raw_research: list[dict[str, Any]] = []
@@ -218,6 +244,11 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         total_tokens += tokens
         total_cost += cost
 
+    for result, tokens, cost in producthunt_results:
+        raw_research.append(result)
+        total_tokens += tokens
+        total_cost += cost
+
     if state.get("retry_count", 0) == 0:
         await context_cache.set_research(company, website, objective, raw_research)
 
@@ -230,6 +261,11 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
         providers_used.append("newsapi")
     if settings.firecrawl_api_key and website:
         providers_used.append("firecrawl")
+    if search_config["producthunt_use_lookup"] and (
+        settings.producthunt_developer_token
+        or (settings.producthunt_api_key and settings.producthunt_api_secret)
+    ):
+        providers_used.append("producthunt")
 
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["research"] = {

@@ -19,6 +19,7 @@ create a structured research plan as JSON with these keys:
   - firecrawl_use_crawl: boolean (true only for deep multi-page site analysis; slower and costlier)
   - firecrawl_search_limit: integer 3-10 (only if firecrawl_use_search is true)
   - firecrawl_crawl_limit: integer 2-10 (only if firecrawl_use_crawl is true)
+  - producthunt_use_lookup: boolean (true for startups/SaaS/consumer products likely on Product Hunt; false for large enterprises)
 
 Return ONLY valid JSON, no markdown."""
 
