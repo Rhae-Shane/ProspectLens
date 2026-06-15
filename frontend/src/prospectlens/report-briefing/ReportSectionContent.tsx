@@ -8,6 +8,7 @@ import {
   MessageCircleQuestion,
   Package,
   TrendingUp,
+  UserRound,
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -32,6 +33,7 @@ import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/Busines
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
+import { StakeholdersDashboard } from '@/prospectlens/report-briefing/StakeholdersDashboard'
 
 export type { ReportSectionId, ReportNavId }
 
@@ -39,6 +41,7 @@ export const REPORT_NAV_ICONS: Record<ReportNavId, LucideIcon> = {
   company_overview: Building2,
   products: Package,
   customers: Users,
+  stakeholders: UserRound,
   signals: TrendingUp,
   risks: AlertTriangle,
   discovery: MessageCircleQuestion,
@@ -48,9 +51,10 @@ export const REPORT_NAV_ICONS: Record<ReportNavId, LucideIcon> = {
 }
 
 export const REPORT_NAV_DESCRIPTIONS: Record<ReportNavId, string> = {
-  company_overview: 'Details, snapshot, commercial & stakeholders',
+  company_overview: 'Snapshot, metrics & market position',
   products: 'Offerings & positioning',
   customers: 'ICP & segments',
+  stakeholders: 'Executives, board & partners',
   signals: 'Dated business events',
   risks: 'Severity-ranked risks',
   discovery: 'Meeting questions',
@@ -384,6 +388,16 @@ export function ReportNavContent({ navId, structured, session }: ReportNavConten
   if (navId === 'signals' && session) {
     return (
       <BusinessSignalsDashboard
+        structured={structured}
+        session={session}
+        updatedAt={session.created_at}
+      />
+    )
+  }
+
+  if (navId === 'stakeholders' && session) {
+    return (
+      <StakeholdersDashboard
         structured={structured}
         session={session}
         updatedAt={session.created_at}

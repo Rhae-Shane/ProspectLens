@@ -147,6 +147,60 @@ export interface Stakeholder {
   linkedin_url?: string
   why_matters: string
   conversation_hook: string
+  focus_areas?: string[]
+  background?: string
+  tag?: string
+}
+
+export interface StakeholderSummaryCount {
+  label: string
+  value: number
+  hint: string
+}
+
+export interface StakeholderGroupBreakdown {
+  name: string
+  percent: number
+  count: number
+}
+
+export interface ExecutiveStakeholder {
+  name: string
+  title: string
+  tag?: string
+  focus_areas: string[]
+  background: string
+  linkedin_url?: string
+  image_url?: string
+}
+
+export interface NamedStakeholder {
+  name: string
+  role: string
+  linkedin_url?: string
+  image_url?: string
+}
+
+export interface EntityStakeholder {
+  name: string
+  type: 'investor' | 'partner' | 'board'
+  website?: string
+  image_url?: string
+}
+
+export interface OtherStakeholderGroup {
+  label: string
+  description: string
+}
+
+export interface StakeholdersOverview {
+  summary_counts: StakeholderSummaryCount[]
+  groups: StakeholderGroupBreakdown[]
+  executives: ExecutiveStakeholder[]
+  board_members: NamedStakeholder[]
+  investors: EntityStakeholder[]
+  partners: EntityStakeholder[]
+  other_groups: OtherStakeholderGroup[]
 }
 
 export interface BusinessSignal {
@@ -313,6 +367,7 @@ export interface StructuredReport {
   products_services?: ProductsServicesOverview
   risks_challenges?: RisksChallengesOverview
   business_signals?: BusinessSignalsOverview
+  stakeholders_overview?: StakeholdersOverview
   products: ReportProduct[]
   target_customers: TargetCustomer[]
   stakeholders: Stakeholder[]
@@ -345,19 +400,20 @@ export const REPORT_SECTIONS = [
 
 export type ReportSectionId = (typeof REPORT_SECTIONS)[number]['id']
 
-export const COMPANY_OVERVIEW_SECTION_IDS = ['snapshot', 'commercial', 'stakeholders'] as const satisfies readonly ReportSectionId[]
+export const COMPANY_OVERVIEW_SECTION_IDS = ['snapshot', 'commercial'] as const satisfies readonly ReportSectionId[]
 
 /** Top-level navigation groups shown in report VIEW menus. */
 export const REPORT_NAV_ITEMS = [
   { id: 'company_overview', label: 'Company Overview', number: 1 },
   { id: 'products', label: 'Products & Services', number: 2 },
   { id: 'customers', label: 'Target Customers', number: 3 },
-  { id: 'signals', label: 'Business Signals', number: 4 },
-  { id: 'risks', label: 'Risks & Challenges', number: 5 },
-  { id: 'discovery', label: 'Discovery Questions', number: 6 },
-  { id: 'outreach', label: 'Outreach Strategy', number: 7 },
-  { id: 'unknowns', label: 'Unknowns', number: 8 },
-  { id: 'sources', label: 'Sources', number: 9 },
+  { id: 'stakeholders', label: 'Stakeholders', number: 4 },
+  { id: 'signals', label: 'Business Signals', number: 5 },
+  { id: 'risks', label: 'Risks & Challenges', number: 6 },
+  { id: 'discovery', label: 'Discovery Questions', number: 7 },
+  { id: 'outreach', label: 'Outreach Strategy', number: 8 },
+  { id: 'unknowns', label: 'Unknowns', number: 9 },
+  { id: 'sources', label: 'Sources', number: 10 },
 ] as const
 
 export type ReportNavId = (typeof REPORT_NAV_ITEMS)[number]['id']

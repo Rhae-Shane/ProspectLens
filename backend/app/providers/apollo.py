@@ -175,5 +175,131 @@ class ApolloClient:
             0.0,
         )
 
+    async def search_people(
+        self,
+        company: str,
+        website: str,
+        *,
+        limit: int = 10,
+    ) -> tuple[dict[str, Any], int, float]:
+        """Search Apollo for senior people at the company domain."""
+        domain = domain_from_website(website)
+        if not self.api_key:
+            return self._mock_people_result(company, domain)
+        if not domain:
+            return self._error_people_result(company, "No valid website domain for people search.")
+
+        search_url = "https://api.apollo.io/api/v1/mixed_people/api_search"
+        payload = {
+            "q_organization_domains": domain,
+            "person_seniorities": ["owner", "founder", "c_suite", "vp", "director"],
+            "page": 1,
+            "per_page": min(limit, 25),
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                search_url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                    "x-api-key": self.api_key,
+                },
+                json=payload,
+            )
+            if response.status_code == 401:
+                return self._error_people_result(company, "Invalid Apollo API credentials.")
+            if response.status_code >= 400:
+                return self._error_people_result(company, f"Apollo people search failed ({response.status_code}).")
+            data = response.json()
+
+        people = data.get("people") or []
+        if not people:
+            return self._not_found_people_result(company, domain)
+
+        return self._format_people_result(company, domain, people)
+
+    def _format_people_result(
+        self,
+        company: str,
+        domain: str,
+        people: list[dict[str, Any]],
+    ) -> tuple[dict[str, Any], int, float]:
+        lines = [f"Apollo people search for {company} ({domain}):"]
+        sources: list[dict[str, str]] = []
+
+        for person in people[:10]:
+            name = person.get("name") or f"{person.get('first_name', '')} {person.get('last_name', '')}".strip()
+            title = person.get("title") or "Executive"
+            linkedin = person.get("linkedin_url") or ""
+            lines.append(f"- {name} | {title}" + (f" | LinkedIn: {linkedin}" if linkedin else ""))
+            if linkedin:
+                sources.append({"title": f"{name} LinkedIn", "url": linkedin, "snippet": title})
+
+        content = "\n".join(lines)
+        return (
+            {
+                "query": f"{company} Apollo people search",
+                "provider": "apollo",
+                "content": content,
+                "sources": sources,
+                "people": [
+                    {
+                        "name": p.get("name") or f"{p.get('first_name', '')} {p.get('last_name', '')}".strip(),
+                        "title": p.get("title") or "Executive",
+                        "linkedin_url": p.get("linkedin_url") or "",
+                        "previous_company": p.get("organization", {}).get("name", "") if isinstance(p.get("organization"), dict) else "",
+                    }
+                    for p in people[:10]
+                    if p.get("name") or p.get("first_name")
+                ],
+            },
+            max(len(content) // 4, 100),
+            0.0,
+        )
+
+    def _not_found_people_result(self, company: str, domain: str) -> tuple[dict[str, Any], int, float]:
+        content = f"No Apollo people records found for {company} ({domain})."
+        return (
+            {
+                "query": f"{company} Apollo people search",
+                "provider": "apollo",
+                "content": content,
+                "sources": [],
+                "people": [],
+            },
+            50,
+            0.0,
+        )
+
+    def _error_people_result(self, company: str, message: str) -> tuple[dict[str, Any], int, float]:
+        return (
+            {
+                "query": f"{company} Apollo people search",
+                "provider": "apollo",
+                "content": f"Apollo people search failed: {message}",
+                "sources": [],
+                "people": [],
+            },
+            0,
+            0.0,
+        )
+
+    def _mock_people_result(self, company: str, domain: str) -> tuple[dict[str, Any], int, float]:
+        return (
+            {
+                "query": f"{company} Apollo people search",
+                "provider": "apollo",
+                "content": (
+                    f"Apollo people placeholder for {company} ({domain or 'no domain'}). "
+                    "Configure APOLLO_API_KEY for executive lookup."
+                ),
+                "sources": [],
+                "people": [],
+            },
+            50,
+            0.0,
+        )
+
 
 apollo_client = ApolloClient()

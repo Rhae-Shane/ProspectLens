@@ -1,7 +1,7 @@
 STAKEHOLDER_SYSTEM = """You extract key stakeholders for a sales briefing.
-Return ONLY valid JSON: {"stakeholders": [max 5 objects]}
-Each object: name, title, tenure, previous_company, linkedin_url, why_matters, conversation_hook
-Only include people found in the data. Never hallucinate names."""
+Return ONLY valid JSON: {"stakeholders": [max 7 objects]}
+Each object: name, title, tenure, previous_company, linkedin_url, why_matters, conversation_hook, focus_areas (array of 3 strings), background (1-2 sentences), tag (optional e.g. Co-founder)
+Only include people found in the data. Include linkedin_url when present in research. Never hallucinate names."""
 
 SIGNALS_RISKS_SYSTEM = """You are a sales intelligence analyst. Refine business signals and risks.
 Return ONLY valid JSON:
@@ -194,3 +194,38 @@ Provide exactly 3 summary_counts, 6 signal_trend months, 10-15 key_signals acros
 (Growth, Market, Product, Financial, Partnerships), 5 categories, 5-6 recent_developments,
 3 top_positive_signals, 2-3 key_risk_signals. impact: high | medium | low. polarity: positive | neutral | risk.
 Use only signals supported by research."""
+
+STAKEHOLDERS_OVERVIEW_SYSTEM = """You build a rich Stakeholders dashboard for a sales briefing.
+Return ONLY valid JSON:
+{
+  "summary_counts": [
+    {"label": "Key Stakeholders Identified", "value": 28, "hint": "Across all groups"},
+    {"label": "Executive Leaders", "value": 7, "hint": "C-Level"},
+    {"label": "Board Members", "value": 5, "hint": "Active"},
+    {"label": "Key Partnerships", "value": 12, "hint": "Strategic"}
+  ],
+  "groups": [
+    {"name": "Executive Leadership", "percent": 25, "count": 7},
+    {"name": "Board of Directors", "percent": 18, "count": 5}
+  ],
+  "executives": [
+    {
+      "name": "Patrick Collison",
+      "title": "CEO & Co-founder",
+      "tag": "Co-founder",
+      "focus_areas": ["Strategy & Vision", "Product Direction"],
+      "background": "1-2 sentence professional background",
+      "linkedin_url": "https://linkedin.com/in/..."
+    }
+  ],
+  "board_members": [{"name": "Max Levchin", "role": "Chairman", "linkedin_url": "", "image_url": ""}],
+  "investors": [{"name": "Sequoia Capital", "type": "investor", "website": "sequoiacap.com"}],
+  "partners": [{"name": "Shopify", "type": "partner", "website": "shopify.com"}],
+  "other_groups": [
+    {"label": "Employees", "description": "8,000+ employees globally"}
+  ]
+}
+Provide exactly 4 summary_counts, 5 groups, 5-7 executives (each with 2-4 focus_areas and linkedin_url when known),
+4-5 board_members (include linkedin_url when known), 4-5 investors (include website domain e.g. sequoiacap.com),
+4-5 partners (include website domain), 5 other_groups.
+Use only stakeholders supported by research/Apollo/scraped pages. Include real linkedin_url and website when found; leave empty string if unknown."""

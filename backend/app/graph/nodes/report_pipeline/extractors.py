@@ -181,6 +181,38 @@ def risks_from_analysis(analysis: dict[str, Any]) -> list[dict[str, Any]]:
     return risks
 
 
+_STAKEHOLDER_KEYWORDS = ("about", "team", "leadership", "executive", "board", "founder", "management", "people")
+
+
+def extract_stakeholder_research(state: dict[str, Any], max_chars: int = 10000) -> str:
+    """Collect leadership/team page content and people data from research."""
+    parts: list[str] = []
+    analysis = state.get("business_signals") or {}
+    people = analysis.get("key_people") or []
+    if people:
+        parts.append(f"Analysis key_people:\n{json.dumps(people, indent=2)[:4000]}")
+
+    for item in state.get("raw_research", []):
+        if not isinstance(item, dict):
+            continue
+        content = _safe_str(item.get("content"), "")
+        provider = _safe_str(item.get("provider"), "")
+        if not content:
+            continue
+
+        apollo_people = item.get("people")
+        if isinstance(apollo_people, list) and apollo_people:
+            parts.append(f"\n--- {provider} people ---\n{json.dumps(apollo_people, indent=2)[:3000]}")
+
+        source_urls = " ".join(str(src.get("url", "")) for src in item.get("sources", []) if isinstance(src, dict))
+        combined = f"{source_urls} {content[:300]}".lower()
+        if provider == "apollo" or any(keyword in combined for keyword in _STAKEHOLDER_KEYWORDS):
+            label = source_urls[:120] or provider
+            parts.append(f"\n--- {provider}: {label} ---\n{content[:5000]}")
+
+    return "\n".join(parts)[:max_chars]
+
+
 def stakeholders_from_analysis(analysis: dict[str, Any]) -> list[dict[str, str]]:
     raw = analysis.get("key_people") or []
     if not isinstance(raw, list):

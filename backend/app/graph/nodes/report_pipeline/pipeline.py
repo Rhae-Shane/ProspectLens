@@ -14,6 +14,7 @@ from .extractors import (
     extract_products,
     extract_snapshot,
     extract_sources,
+    extract_stakeholder_research,
     risks_from_analysis,
     signals_from_analysis,
     stakeholders_from_analysis,
@@ -28,6 +29,7 @@ from .prompts import (
     RISKS_CHALLENGES_SYSTEM,
     SIGNALS_RISKS_SYSTEM,
     STAKEHOLDER_SYSTEM,
+    STAKEHOLDERS_OVERVIEW_SYSTEM,
 )
 
 
@@ -69,6 +71,45 @@ async def _enrich_product_research(
             extra_parts.append(f"\n--- Scraped {url} ---\n{content[:6000]}")
 
     return "\n".join(extra_parts)[:12000], total_tokens, total_cost
+
+
+async def _enrich_stakeholder_research(
+    state: dict[str, Any],
+    base_snippet: str,
+) -> tuple[str, list[dict[str, Any]], int, float]:
+    """Apollo people search + leadership page scrapes for stakeholder enrichment."""
+    total_tokens = 0
+    total_cost = 0.0
+    apollo_people: list[dict[str, Any]] = []
+    extra_parts = [base_snippet]
+
+    people_result, tokens, cost = await apollo_client.search_people(
+        str(state.get("company_name", "")),
+        str(state.get("website", "")),
+        limit=10,
+    )
+    total_tokens += tokens
+    total_cost += cost
+    if people_result.get("content"):
+        extra_parts.append(f"\n--- Apollo people search ---\n{people_result.get('content', '')[:4000]}")
+    apollo_people = people_result.get("people") or []
+
+    if len(base_snippet) < 2000 and get_settings().firecrawl_api_key and state.get("website"):
+        website = str(state["website"])
+        urls = [
+            url
+            for url in firecrawl_client.guess_priority_urls(website)
+            if any(keyword in url.lower() for keyword in ("about", "team", "leadership", "company"))
+        ]
+        for url in urls[:2]:
+            result, tokens, cost = await firecrawl_client.scrape(url)
+            total_tokens += tokens
+            total_cost += cost
+            content = str(result.get("content", "")).strip()
+            if content and not content.startswith("Configure FIRECRAWL"):
+                extra_parts.append(f"\n--- Scraped {url} ---\n{content[:6000]}")
+
+    return "\n".join(extra_parts)[:12000], apollo_people, total_tokens, total_cost
 
 
 async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], int, float]:
@@ -139,14 +180,60 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     research_snippet = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=6000)
     people_seed = json.dumps(analysis.get("key_people", []), indent=2)[:3000]
 
+    stakeholder_research = extract_stakeholder_research(state)
+    stakeholder_research, apollo_people, stake_tokens, stake_cost = await _enrich_stakeholder_research(
+        state, stakeholder_research
+    )
+    total_tokens += stake_tokens
+    total_cost += stake_cost
+
     stakeholder_result, tokens, cost = await openai_client.complete_json(
         STAKEHOLDER_SYSTEM,
-        f"Company: {state['company_name']}\nResearch:\n{research_snippet}\n\nKey people seed:\n{people_seed}",
+        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"Research:\n{research_snippet}\n\n"
+        f"Stakeholder research & scrapes:\n{stakeholder_research}\n\n"
+        f"Apollo people seed:\n{json.dumps(apollo_people, indent=2)}\n\n"
+        f"Key people seed:\n{people_seed}",
     )
     total_tokens += tokens
     total_cost += cost
     stakeholders = _parse_json_payload(stakeholder_result).get("stakeholders") or stakeholders_from_analysis(analysis)
-    node_outputs["report_stakeholders"] = {"count": len(stakeholders)}
+
+    stakeholders_overview_result, tokens, cost = await openai_client.complete_json(
+        STAKEHOLDERS_OVERVIEW_SYSTEM,
+        f"Company: {state['company_name']}\n"
+        f"Stakeholders:\n{json.dumps(stakeholders, indent=2)}\n\n"
+        f"Apollo people:\n{json.dumps(apollo_people, indent=2)}\n\n"
+        f"Research:\n{stakeholder_research[:5000]}",
+    )
+    total_tokens += tokens
+    total_cost += cost
+    stakeholders_overview = _parse_json_payload(stakeholders_overview_result)
+
+    execs = stakeholders_overview.get("executives") or []
+    if execs:
+        stakeholders = [
+            {
+                "name": str(item.get("name", "Executive"))[:80],
+                "title": str(item.get("title", "Executive"))[:120],
+                "tenure": "",
+                "previous_company": "",
+                "linkedin_url": str(item.get("linkedin_url", ""))[:300],
+                "why_matters": str(item.get("background", ""))[:500],
+                "conversation_hook": f"Discuss {item.get('focus_areas', ['priorities'])[0] if item.get('focus_areas') else 'priorities'}",
+                "focus_areas": [str(f) for f in (item.get("focus_areas") or [])[:4]],
+                "background": str(item.get("background", ""))[:500],
+                "tag": str(item.get("tag", ""))[:40],
+            }
+            for item in execs[:7]
+            if isinstance(item, dict)
+        ]
+
+    node_outputs["report_stakeholders"] = {
+        "count": len(stakeholders),
+        "executives": len(execs),
+        "apollo_people": len(apollo_people),
+    }
 
     signals_seed = json.dumps(
         {
@@ -255,6 +342,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "products": products["products"],
         "target_customers": products["target_customers"],
         "stakeholders": stakeholders,
+        "stakeholders_overview": stakeholders_overview,
         "signals": signals,
         "business_signals": business_signals,
         "risks": risks,
@@ -277,6 +365,7 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
             "report_products_services",
             "report_products",
             "report_stakeholders",
+            "report_stakeholders_overview",
             "report_signals_risks",
             "report_business_signals",
             "report_risks_challenges",

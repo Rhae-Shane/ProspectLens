@@ -28,6 +28,7 @@ import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/Busines
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
+import { StakeholdersDashboard } from '@/prospectlens/report-briefing/StakeholdersDashboard'
 import {
   ReportNavContent,
   type ReportSessionMeta,
@@ -218,8 +219,17 @@ export function ReportWorkspace({
               />
             ) : null}
 
+            {activeSection === 'stakeholders' ? (
+              <StakeholdersDashboard
+                structured={structured}
+                session={session}
+                updatedAt={session.created_at}
+              />
+            ) : null}
+
             {activeSection !== 'company_overview' &&
             activeSection !== 'products' &&
+            activeSection !== 'stakeholders' &&
             activeSection !== 'risks' &&
             activeSection !== 'signals' &&
             activeSection !== 'chat' ? (
