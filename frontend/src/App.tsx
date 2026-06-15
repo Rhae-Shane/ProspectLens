@@ -6,6 +6,7 @@ import { AppProviders } from '@/providers/AppProviders'
 
 import { HomePage } from '@/pages/HomePage'
 import { NewSessionPage } from '@/pages/NewSessionPage'
+import { ReportsPage } from '@/pages/ReportsPage'
 import { SessionsPage } from '@/pages/SessionsPage'
 
 import AuthV2Layout from '@/pages/auth/v2/layout'
@@ -80,6 +81,8 @@ export default function App() {
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="sessions/new" element={<NewSessionPage />} />
             <Route path="sessions/:id" element={<SessionsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="reports/:id" element={<ReportsPage />} />
           </Route>
 
           <Route path="auth/v1/login" element={<AuthV1LoginPage />} />

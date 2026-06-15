@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   AlertCircle,
   Calendar,
   ChevronRight,
-  ClipboardList,
   Coins,
   ExternalLink,
   FileText,
@@ -13,50 +12,39 @@ import {
   Globe,
   Info,
   Loader2,
+  MessageCircleQuestion,
   MessageSquare,
-  RefreshCw,
-  Sparkles,
+  Megaphone,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 import { api } from '@/api/client'
-import { useWorkflowEvents } from '@/hooks/useWorkflowEvents'
 import { prefetchCompanyLogo } from '@/lib/company-logo-cache'
 import { extractCompanyDomain } from '@/lib/company-logo'
-import { providerColor, providerLabel } from '@/lib/source-utils'
 import { cn, formatCost } from '@/lib/utils'
+import { WorkspaceEmptyState } from '@/components/workspace-empty-state'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
-import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
 import { ReportViewer } from '@/prospectlens/ReportViewer'
-import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { WorkflowProgress } from '@/prospectlens/WorkflowProgress'
-import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
 
-import { WorkspaceEmptyState } from '@/components/workspace-empty-state'
+type ReportView = 'overview' | 'briefing' | 'discovery' | 'chat' | 'workflow'
 
-type SessionView = 'details' | 'workflow' | 'report' | 'chat' | 'trace'
-
-const viewItems: { id: SessionView; label: string; icon: LucideIcon; description: string }[] = [
-  { id: 'details', label: 'Session Details', icon: Info, description: 'Company & objective' },
-  { id: 'workflow', label: 'Workflow', icon: GitBranch, description: 'Pipeline progress' },
-  { id: 'report', label: 'Research Report', icon: FileText, description: 'Generated briefing' },
+const viewItems: { id: ReportView; label: string; icon: LucideIcon; description: string }[] = [
+  { id: 'overview', label: 'Report Details', icon: Info, description: 'Company & objective' },
+  { id: 'briefing', label: 'Full Briefing', icon: FileText, description: 'Complete report' },
+  { id: 'discovery', label: 'Discovery & Outreach', icon: MessageCircleQuestion, description: 'Questions & strategy' },
   { id: 'chat', label: 'Follow-up Chat', icon: MessageSquare, description: 'Ask follow-ups' },
-  { id: 'trace', label: 'Event Trace', icon: Sparkles, description: 'Token & node events' },
+  { id: 'workflow', label: 'Workflow', icon: GitBranch, description: 'How it was built' },
 ]
 
-interface SessionDetailsPanelProps {
+interface ReportDetailsPanelProps {
   sessionId: string | null
-  expectRunning?: boolean
-}
-
-function EmptySessionDetails() {
-  return <WorkspaceEmptyState icon={ClipboardList} navLabel="Select a session" />
 }
 
 function ViewNavButton({
@@ -149,29 +137,25 @@ function QuickInfoChip({
   )
 }
 
-function ViewSectionHeader({
-  title,
-  description,
-  action,
-}: {
-  title: string
-  description: string
-  action?: React.ReactNode
-}) {
+function ViewSectionHeader({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
-      <div>
-        <h3 className="font-semibold text-lg tracking-tight">{title}</h3>
-        <p className="mt-1 text-muted-foreground text-sm">{description}</p>
-      </div>
-      {action}
+    <div className="border-b pb-4">
+      <h3 className="font-semibold text-lg tracking-tight">{title}</h3>
+      <p className="mt-1 text-muted-foreground text-sm">{description}</p>
     </div>
   )
 }
 
-export function SessionDetailsPanel({ sessionId, expectRunning = false }: SessionDetailsPanelProps) {
-  const queryClient = useQueryClient()
-  const [activeView, setActiveView] = useState<SessionView>('details')
+function MarkdownBlock({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  )
+}
+
+export function ReportDetailsPanel({ sessionId }: ReportDetailsPanelProps) {
+  const [activeView, setActiveView] = useState<ReportView>('overview')
 
   const { data: session, isLoading, isError, error } = useQuery({
     queryKey: ['session', sessionId],
@@ -179,69 +163,35 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
     enabled: !!sessionId,
   })
 
+  const { data: events = [] } = useQuery({
+    queryKey: ['events', sessionId],
+    queryFn: () => api.getEvents(sessionId!),
+    enabled: !!sessionId,
+    staleTime: Infinity,
+  })
+
   useEffect(() => {
-    setActiveView('details')
+    setActiveView('overview')
   }, [sessionId])
 
   useEffect(() => {
     if (session?.website) prefetchCompanyLogo(session.website)
   }, [session?.website])
 
-  const streamActive =
-    !!sessionId &&
-    (session?.status === 'running' ||
-      session?.status === 'pending' ||
-      (expectRunning && session == null))
+  const sortedEvents = useMemo(
+    () => [...events].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [events]
+  )
 
-  const handleWorkflowTerminal = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
-    queryClient.invalidateQueries({ queryKey: ['sessions'] })
-  }, [queryClient, sessionId])
-
-  const { events: liveEvents } = useWorkflowEvents(sessionId ?? '', streamActive, handleWorkflowTerminal)
-
-  const { data: storedEvents = [] } = useQuery({
-    queryKey: ['events', sessionId],
-    queryFn: () => api.getEvents(sessionId!),
-    enabled: !!sessionId && !streamActive,
-    staleTime: Infinity,
-  })
-
-  const allEvents = useMemo(() => {
-    const source = streamActive ? liveEvents : storedEvents.length > 0 ? storedEvents : liveEvents
-    return [...source].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
-  }, [streamActive, liveEvents, storedEvents])
-
-  const researchProviders = useMemo(() => extractResearchProviders(allEvents), [allEvents])
-
-  const qualityScore = useMemo(() => {
-    const qc = [...allEvents]
-      .reverse()
-      .find((e) => e.node === 'quality_check' && e.event_type === 'completed')
-    if (!qc) return null
-    const data = (qc.payload.node_outputs ?? qc.payload) as Record<string, unknown>
-    const score = Number(data.quality_score ?? 0)
-    return score > 0 ? score : null
-  }, [allEvents])
-
-  const retryMutation = useMutation({
-    mutationFn: () => api.retryWorkflow(sessionId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
-      queryClient.invalidateQueries({ queryKey: ['events', sessionId] })
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
-    },
-  })
-
-  if (!sessionId) return <EmptySessionDetails />
+  if (!sessionId) {
+    return <WorkspaceEmptyState icon={FileText} navLabel="Select a research report" />
+  }
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         <Loader2 className="mr-2 size-5 animate-spin" />
-        Loading session...
+        Loading report...
       </div>
     )
   }
@@ -251,7 +201,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
       <div className="p-4">
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
-          <AlertDescription>{(error as Error)?.message || 'Session not found'}</AlertDescription>
+          <AlertDescription>{(error as Error)?.message || 'Report not found'}</AlertDescription>
         </Alert>
       </div>
     )
@@ -259,6 +209,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
 
   const createdAt = parseISO(session.created_at)
   const domain = extractCompanyDomain(session.website)
+  const report = session.report
 
   return (
     <div className="grid h-full min-h-0 overflow-hidden lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:divide-x">
@@ -272,14 +223,9 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                 {domain ?? session.id.slice(0, 8)}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              <SessionStatusBadge status={session.status} />
-              {session.workflow_status ? (
-                <Badge variant="outline" className="capitalize">
-                  {session.workflow_status.replace(/_/g, ' ')}
-                </Badge>
-              ) : null}
-            </div>
+            <Badge variant="outline" className="border-green-200 bg-green-500/10 text-green-700 dark:text-green-300">
+              Report ready
+            </Badge>
           </div>
         </div>
 
@@ -294,7 +240,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                   label={item.label}
                   description={item.description}
                   icon={item.icon}
-                  disabled={item.id === 'report' && !session.report}
+                  disabled={!report && (item.id === 'briefing' || item.id === 'discovery')}
                   onClick={() => setActiveView(item.id)}
                 />
               ))}
@@ -307,7 +253,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
         <div className="shrink-0 border-b bg-muted/10 px-4 py-3 md:px-6">
           <div className="flex flex-wrap gap-2">
             <QuickInfoChip icon={Globe} label="Website" value={domain ?? session.website} href={session.website} />
-            <QuickInfoChip icon={Calendar} label="Created" value={format(createdAt, 'MMM d, yyyy · h:mm a')} />
+            <QuickInfoChip icon={Calendar} label="Generated" value={format(createdAt, 'MMM d, yyyy · h:mm a')} />
             {session.total_tokens > 0 ? (
               <QuickInfoChip
                 icon={Coins}
@@ -320,29 +266,12 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
 
         <ScrollArea className="h-full min-h-0 flex-1">
           <div className="space-y-6 p-4 md:p-6">
-            {activeView === 'details' && (
+            {activeView === 'overview' && (
               <>
                 <ViewSectionHeader
-                  title="Session Details"
-                  description="Company context and research objective for this run."
-                  action={
-                    session.status === 'failed' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => retryMutation.mutate()}
-                        disabled={retryMutation.isPending}
-                      >
-                        <RefreshCw
-                          className={cn('size-4', retryMutation.isPending && 'animate-spin')}
-                          data-icon="inline-start"
-                        />
-                        Retry workflow
-                      </Button>
-                    ) : undefined
-                  }
+                  title="Report Details"
+                  description="Context for this company briefing."
                 />
-
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card>
                     <CardHeader className="pb-2">
@@ -350,7 +279,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                         Company
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent>
                       <div className="flex items-center gap-3">
                         <CompanyLogo name={session.company_name} website={session.website} size="lg" />
                         <div className="min-w-0">
@@ -368,11 +297,10 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                        Session info
+                        Report info
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
@@ -381,17 +309,12 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                         <span className="truncate font-mono text-xs">{session.id}</span>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Created</span>
+                        <span className="text-muted-foreground">Generated</span>
                         <span className="text-right">{format(createdAt, 'PPP p')}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Status</span>
-                        <SessionStatusBadge status={session.status} className="text-[10px]" />
                       </div>
                     </CardContent>
                   </Card>
                 </div>
-
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -402,67 +325,77 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                     <p className="text-sm leading-relaxed">{session.objective}</p>
                   </CardContent>
                 </Card>
-
-                {session.error_message ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{session.error_message}</AlertDescription>
-                  </Alert>
-                ) : null}
               </>
             )}
 
-            {activeView === 'workflow' && (
+            {activeView === 'briefing' && (
               <>
                 <ViewSectionHeader
-                  title="Workflow"
-                  description="Live progress across research pipeline steps."
+                  title="Full Briefing"
+                  description="Complete research report for this company."
                 />
-                <Card>
-                  <CardContent className="pt-6">
-                    <WorkflowProgress events={allEvents} workflowStatus={session.workflow_status} />
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
-            {activeView === 'report' && (
-              <>
-                <ViewSectionHeader
-                  title="Research Report"
-                  description="Generated company briefing from the research pipeline."
-                  action={
-                    <div className="flex flex-wrap gap-2">
-                      {qualityScore != null && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            qualityScore >= 0.75
-                              ? 'border-green-200 bg-green-500/10 text-green-700 dark:text-green-300'
-                              : 'border-amber-200 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                          )}
-                        >
-                          Quality {(qualityScore * 100).toFixed(0)}%
-                        </Badge>
-                      )}
-                      {researchProviders.map((provider) => (
-                        <Badge
-                          key={provider}
-                          variant="outline"
-                          className={cn('text-[10px] capitalize', providerColor(provider))}
-                        >
-                          {providerLabel(provider)}
-                        </Badge>
-                      ))}
-                    </div>
-                  }
-                />
-                {session.report ? (
-                  <ReportViewer report={session.report} />
+                {report ? (
+                  <ReportViewer report={report} />
                 ) : (
                   <div className="grid min-h-48 place-items-center rounded-xl border border-dashed text-muted-foreground text-sm">
-                    Report will appear when the workflow completes.
+                    Report content is not available yet.
                   </div>
                 )}
+              </>
+            )}
+
+            {activeView === 'discovery' && report && (
+              <>
+                <ViewSectionHeader
+                  title="Discovery & Outreach"
+                  description="Questions, strategy, and gaps to validate in the meeting."
+                />
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <MessageCircleQuestion className="size-4" />
+                        Discovery questions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ol className="space-y-2">
+                        {report.discovery_questions.map((question, index) => (
+                          <li key={index} className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+                            {question}
+                          </li>
+                        ))}
+                      </ol>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Megaphone className="size-4" />
+                        Outreach strategy
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <MarkdownBlock content={report.outreach_strategy} />
+                    </CardContent>
+                  </Card>
+                  {report.unknowns.length > 0 ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Unknowns to validate</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {report.unknowns.map((item, index) => (
+                            <li key={index} className="rounded-lg border border-amber-200/60 bg-amber-500/5 px-3 py-2 text-sm dark:border-amber-900/30">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                </div>
               </>
             )}
 
@@ -480,19 +413,15 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
               </>
             )}
 
-            {activeView === 'trace' && (
+            {activeView === 'workflow' && (
               <>
                 <ViewSectionHeader
-                  title="Event Trace"
-                  description="Token usage and node-level workflow events."
+                  title="Workflow"
+                  description="How this research report was generated."
                 />
                 <Card>
                   <CardContent className="pt-6">
-                    <WorkflowTrace
-                      events={allEvents}
-                      totalTokens={session.total_tokens}
-                      totalCost={session.total_cost_usd}
-                    />
+                    <WorkflowProgress events={sortedEvents} workflowStatus={session.workflow_status} />
                   </CardContent>
                 </Card>
               </>

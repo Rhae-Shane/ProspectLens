@@ -1,36 +1,24 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { api } from '@/api/client'
 import { prefetchCompanyLogos } from '@/lib/company-logo-cache'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
-import { SessionDetailsPanel } from './session-details-panel'
-import { SessionList } from './session-list'
+import { ReportDetailsPanel } from './report-details-panel'
+import { ReportList } from './report-list'
 
-export function SessionsWorkspace() {
+export function ReportsWorkspace() {
   const { id: routeSessionId } = useParams<{ id?: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
-  const expectRunning = Boolean(
-    (location.state as { expectRunning?: boolean } | null)?.expectRunning
-  )
 
   const [detailsOpen, setDetailsOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [statusFilter, setStatusFilter] = React.useState('all')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => api.listSessions(1, 50),
-    refetchInterval: (query) => {
-      const items = query.state.data?.items
-      if (!items?.some((s) => s.status === 'running' || s.status === 'pending')) {
-        return false
-      }
-      return 30_000
-    },
+    queryKey: ['sessions', 'reports'],
+    queryFn: () => api.listSessions(1, 100),
   })
 
   const sessions = data?.items ?? []
@@ -43,14 +31,14 @@ export function SessionsWorkspace() {
 
   const selectedSessionId = React.useMemo(() => {
     if (!routeSessionId) return null
-    if (sessions.some((session) => session.id === routeSessionId)) {
+    if (sessions.some((session) => session.id === routeSessionId && session.status === 'completed')) {
       return routeSessionId
     }
     return null
   }, [routeSessionId, sessions])
 
-  function handleSelectSession(sessionId: string) {
-    navigate(`/sessions/${sessionId}`)
+  function handleSelectReport(sessionId: string) {
+    navigate(`/reports/${sessionId}`)
     if (window.innerWidth < 1024) {
       setDetailsOpen(true)
     }
@@ -65,19 +53,17 @@ export function SessionsWorkspace() {
         className="grid min-h-0 w-full max-w-none flex-1 overflow-hidden lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] lg:divide-x"
       >
         <div className="h-full overflow-hidden">
-          <SessionList
+          <ReportList
             sessions={sessions}
             selectedSessionId={selectedSessionId}
-            onSelectSession={handleSelectSession}
+            onSelectReport={handleSelectReport}
             isLoading={isLoading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
           />
         </div>
         <div className="hidden h-full overflow-hidden lg:block">
-          <SessionDetailsPanel sessionId={selectedSessionId} expectRunning={expectRunning} />
+          <ReportDetailsPanel sessionId={selectedSessionId} />
         </div>
       </div>
 
@@ -88,11 +74,11 @@ export function SessionsWorkspace() {
         >
           <SheetHeader className="sr-only">
             <SheetTitle>
-              {selectedSession ? `${selectedSession.company_name} session` : 'Session details'}
+              {selectedSession ? `${selectedSession.company_name} report` : 'Research report'}
             </SheetTitle>
-            <SheetDescription>Research session workflow, report, and chat.</SheetDescription>
+            <SheetDescription>Company briefing and follow-up chat.</SheetDescription>
           </SheetHeader>
-          <SessionDetailsPanel sessionId={selectedSessionId} expectRunning={expectRunning} />
+          <ReportDetailsPanel sessionId={selectedSessionId} />
         </SheetContent>
       </Sheet>
     </>
