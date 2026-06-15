@@ -18,7 +18,7 @@ export function NewSessionPage() {
     mutationFn: api.createSession,
     onSuccess: async (session) => {
       await api.runWorkflow(session.id)
-      navigate(`/sessions/${session.id}`)
+      navigate(`/sessions/${session.id}`, { state: { expectRunning: true } })
     },
   })
 

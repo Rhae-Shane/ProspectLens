@@ -12,7 +12,13 @@ export function SessionsPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['sessions'],
     queryFn: () => api.listSessions(1, 50),
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items
+      if (!items?.some((s) => s.status === 'running' || s.status === 'pending')) {
+        return false
+      }
+      return 30_000
+    },
   })
 
   return (

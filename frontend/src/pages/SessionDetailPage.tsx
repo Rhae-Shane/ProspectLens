@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useCallback, useMemo } from 'react'
+import { useParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { useWorkflowEvents } from '@/hooks/useWorkflowEvents'
@@ -19,36 +19,44 @@ import { formatCost, cn } from '@/lib/utils'
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
   const queryClient = useQueryClient()
+  const expectRunning = Boolean(
+    (location.state as { expectRunning?: boolean } | null)?.expectRunning
+  )
 
   const { data: session, isLoading, isError, error } = useQuery({
     queryKey: ['session', id],
     queryFn: () => api.getSession(id!),
     enabled: !!id,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      return status === 'running' ? 3000 : false
-    },
   })
 
-  const isRunning = session?.status === 'running'
-  const { events: sseEvents } = useWorkflowEvents(id!, isRunning || session?.status === 'pending')
+  const streamActive =
+    !!id &&
+    (session?.status === 'running' ||
+      session?.status === 'pending' ||
+      (expectRunning && session == null))
+
+  const handleWorkflowTerminal = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['session', id] })
+    queryClient.invalidateQueries({ queryKey: ['sessions'] })
+  }, [queryClient, id])
+
+  const { events: liveEvents } = useWorkflowEvents(id!, streamActive, handleWorkflowTerminal)
 
   const { data: storedEvents = [] } = useQuery({
     queryKey: ['events', id],
     queryFn: () => api.getEvents(id!),
-    enabled: !!id,
-    refetchInterval: isRunning ? 5000 : false,
+    enabled: !!id && !streamActive,
+    staleTime: Infinity,
   })
 
   const allEvents = useMemo(() => {
-    const byId = new Map<string, (typeof sseEvents)[number]>()
-    for (const event of storedEvents) byId.set(event.id, event)
-    for (const event of sseEvents) byId.set(event.id, event)
-    return [...byId.values()].sort(
+    const source = streamActive ? liveEvents : storedEvents.length > 0 ? storedEvents : liveEvents
+    return [...source].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )
-  }, [storedEvents, sseEvents])
+  }, [streamActive, liveEvents, storedEvents])
 
   const researchProviders = useMemo(
     () => extractResearchProviders(allEvents),
@@ -69,6 +77,8 @@ export function SessionDetailPage() {
     mutationFn: () => api.retryWorkflow(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', id] })
+      queryClient.invalidateQueries({ queryKey: ['events', id] })
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
     },
   })
 

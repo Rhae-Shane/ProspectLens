@@ -21,7 +21,13 @@ export function NavSessions() {
   const { data, isLoading } = useQuery({
     queryKey: ['sessions', 'nav'],
     queryFn: () => api.listSessions(1, 5),
-    refetchInterval: 10000,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items
+      if (!items?.some((s) => s.status === 'running' || s.status === 'pending')) {
+        return false
+      }
+      return 30_000
+    },
   })
 
   return (
