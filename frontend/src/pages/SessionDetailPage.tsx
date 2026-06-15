@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, RefreshCw, AlertCircle, ExternalLink, Sparkles } from 'lucide-react'
 import { formatCost, cn } from '@/lib/utils'
+import { prefetchCompanyLogo } from '@/lib/company-logo-cache'
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,6 +32,10 @@ export function SessionDetailPage() {
     queryFn: () => api.getSession(id!),
     enabled: !!id,
   })
+
+  useEffect(() => {
+    if (session?.website) prefetchCompanyLogo(session.website)
+  }, [session?.website])
 
   const streamActive =
     !!id &&

@@ -17,6 +17,7 @@ import { AlertCircle, ChevronDownIcon, ListFilter, Loader2, Plus } from "lucide-
 import { Link } from "react-router-dom";
 
 import { api } from "@/api/client";
+import { prefetchCompanyLogos } from "@/lib/company-logo-cache";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +63,12 @@ export function SessionsSection() {
 
   const sessions = data?.items ?? [];
   const totalSessions = data?.total ?? sessions.length;
+
+  React.useEffect(() => {
+    if (data?.items?.length) {
+      prefetchCompanyLogos(data.items.map((session) => session.website));
+    }
+  }, [data?.items]);
 
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);

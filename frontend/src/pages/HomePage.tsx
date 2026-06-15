@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, ArrowRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -5,6 +6,7 @@ import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
+import { prefetchCompanyLogos } from '@/lib/company-logo-cache'
 import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 
@@ -13,6 +15,12 @@ export function HomePage() {
     queryKey: ['sessions', 1],
     queryFn: () => api.listSessions(1, 5),
   })
+
+  useEffect(() => {
+    if (data?.items.length) {
+      prefetchCompanyLogos(data.items.map((session) => session.website))
+    }
+  }, [data?.items])
 
   return (
     <div className="space-y-10">

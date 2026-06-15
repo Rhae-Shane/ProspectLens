@@ -2,14 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Building2 } from "lucide-react";
 
-import { cn, getInitials } from "@/lib/utils";
+import {
+  getCachedLogoUrl,
+  prefetchCompanyLogo,
+  setCachedLogoUrl,
+} from "@/lib/company-logo-cache";
 import { extractCompanyDomain, getClearbitLogoUrl, getGoogleFaviconUrl } from "@/lib/company-logo";
+import { cn, getInitials } from "@/lib/utils";
 
 const sizeClasses = {
   sm: "size-6 text-[10px]",
   md: "size-8 text-xs",
   lg: "size-10 text-sm",
   xl: "size-12 text-base",
+  "2xl": "size-16 text-lg",
 } as const;
 
 type CompanyLogoSize = keyof typeof sizeClasses;
@@ -23,53 +29,61 @@ interface CompanyLogoProps {
 
 export function CompanyLogo({ name, website, size = "md", className }: CompanyLogoProps) {
   const domain = useMemo(() => extractCompanyDomain(website ?? ""), [website]);
-  const [logoIndex, setLogoIndex] = useState(0);
-
   const logoUrls = useMemo(() => {
     if (!domain) return [];
     return [getClearbitLogoUrl(domain), getGoogleFaviconUrl(domain)];
   }, [domain]);
 
+  const [logoIndex, setLogoIndex] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+  const cachedUrl = domain ? getCachedLogoUrl(domain) : null;
+  const currentSrc = domain ? cachedUrl ?? logoUrls[logoIndex] ?? null : null;
+
   useEffect(() => {
     setLogoIndex(0);
+    setLoaded(Boolean(domain && getCachedLogoUrl(domain)));
   }, [domain]);
 
-  const showImage = domain && logoIndex < logoUrls.length;
-  const currentSrc = showImage ? logoUrls[logoIndex] : null;
-
-  if (currentSrc) {
-    return (
-      <span
-        className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background",
-          sizeClasses[size],
-          className,
-        )}
-      >
-        <img
-          key={currentSrc}
-          src={currentSrc}
-          alt=""
-          className="size-full object-contain p-1"
-          loading="lazy"
-          onError={() => setLogoIndex((index) => index + 1)}
-        />
-      </span>
-    );
-  }
+  useEffect(() => {
+    if (domain) prefetchCompanyLogo(website ?? "");
+  }, [domain, website]);
 
   const initials = getInitials(name);
 
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-md border bg-muted font-medium text-muted-foreground",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted",
         sizeClasses[size],
         className,
       )}
-      aria-hidden
+      aria-hidden={!name}
     >
-      {initials !== "?" ? initials : <Building2 className="size-4" />}
+      <span className="absolute inset-0 flex items-center justify-center font-medium text-muted-foreground">
+        {initials !== "?" ? initials : <Building2 className="size-4" />}
+      </span>
+
+      {currentSrc ? (
+        <img
+          key={currentSrc}
+          src={currentSrc}
+          alt=""
+          decoding="async"
+          className={cn(
+            "relative z-10 size-full bg-background object-contain p-1 transition-opacity duration-150",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+          onLoad={() => {
+            setLoaded(true);
+            if (domain) setCachedLogoUrl(domain, currentSrc);
+          }}
+          onError={() => {
+            setLoaded(false);
+            setLogoIndex((index) => index + 1);
+          }}
+        />
+      ) : null}
     </span>
   );
 }

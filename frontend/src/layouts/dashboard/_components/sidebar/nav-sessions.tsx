@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Plus, Search } from 'lucide-react'
 
 import { api } from '@/api/client'
+import { prefetchCompanyLogos } from '@/lib/company-logo-cache'
 import { CompanyIdentity } from '@/prospectlens/CompanyLogo'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { Button } from '@/components/ui/button'
@@ -30,6 +32,12 @@ export function NavSessions() {
       return 30_000
     },
   })
+
+  useEffect(() => {
+    if (data?.items?.length) {
+      prefetchCompanyLogos(data.items.map((session) => session.website))
+    }
+  }, [data?.items])
 
   return (
     <div className="hidden items-center gap-1 sm:flex">
