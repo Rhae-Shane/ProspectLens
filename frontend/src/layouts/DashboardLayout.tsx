@@ -20,7 +20,7 @@ export function DashboardLayout() {
 
   return (
     <SidebarProvider
-      defaultOpen
+      defaultOpen={false}
       className="h-svh overflow-hidden"
       style={{ '--sidebar-width': 'calc(var(--spacing) * 68)' } as React.CSSProperties}
     >
