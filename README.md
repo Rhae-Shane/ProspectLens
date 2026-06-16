@@ -123,8 +123,6 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for platform-specific steps.
 
 ## Documentation
 
-- [Assignment Rubric Review](docs/assignment-review.md)
-- [LangGraph Native Execution Plan](docs/langgraph-native-execution-plan.md)
 - [Architecture](docs/architecture.md) — system design, workflow, RAG, report pipeline
 - [Workflow Resume Demo](docs/workflow-resume-demo.md) — failure & checkpoint resume walkthrough
 - [Engineering Decisions](docs/engineering-decisions.md) — tradeoffs and technical debt
