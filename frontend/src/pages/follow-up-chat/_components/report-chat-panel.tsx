@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
-import { AlertCircle, ExternalLink, FileText, Globe, Loader2 } from 'lucide-react'
+import { AlertCircle, ExternalLink, FileText, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { api } from '@/api/client'
@@ -9,11 +9,10 @@ import { prefetchCompanyLogo } from '@/lib/company-logo-cache'
 import { extractCompanyDomain } from '@/lib/company-logo'
 import { WorkspaceEmptyState } from '@/components/workspace-empty-state'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
+
+import { FollowUpChatInterface } from './follow-up-chat-interface'
 
 interface ReportChatPanelProps {
   sessionId: string | null
@@ -64,48 +63,46 @@ export function ReportChatPanel({ sessionId }: ReportChatPanelProps) {
   const domain = extractCompanyDomain(session.website)
   const chatEnabled = session.status === 'completed' && Boolean(session.report)
 
+  if (!chatEnabled) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <CompanyLogo name={session.company_name} website={session.website} size="xl" />
+        <p className="font-medium">{session.company_name}</p>
+        <p className="max-w-sm text-muted-foreground text-sm">
+          Complete the research workflow before chatting about this report.
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <Link to={`/sessions/${session.id}`}>View session</Link>
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="shrink-0 border-b bg-muted/10 px-4 py-4 md:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <CompanyLogo name={session.company_name} website={session.website} size="lg" />
-            <div className="min-w-0 space-y-1">
-              <h2 className="truncate font-semibold text-base leading-tight">{session.company_name}</h2>
-              <a
-                href={session.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
-              >
-                <Globe className="size-3" />
-                {domain ?? session.website}
-                <ExternalLink className="size-3" />
-              </a>
-              <p className="text-muted-foreground text-xs">
-                Generated {format(createdAt, 'MMM d, yyyy · h:mm a')}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-green-200 bg-green-500/10 text-green-700 dark:text-green-300">
-              Report ready
-            </Badge>
-            <Button asChild size="sm" variant="outline">
-              <Link to={`/reports/${session.id}`}>View report</Link>
-            </Button>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/90 px-4 backdrop-blur md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <CompanyLogo name={session.company_name} website={session.website} size="sm" />
+          <div className="min-w-0">
+            <h2 className="truncate font-medium text-sm">{session.company_name}</h2>
+            <p className="truncate text-muted-foreground text-xs">
+              {domain} · {format(createdAt, 'MMM d, yyyy')}
+            </p>
           </div>
         </div>
-        <p className="mt-3 line-clamp-2 text-muted-foreground text-sm">{session.objective}</p>
-      </div>
+        <Button asChild size="sm" variant="ghost" className="shrink-0 text-xs">
+          <Link to={`/reports/${session.id}`} className="gap-1.5">
+            View report
+            <ExternalLink className="size-3" />
+          </Link>
+        </Button>
+      </header>
 
-      <div className="flex min-h-0 flex-1 flex-col p-4 md:p-6">
-        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <CardContent className="flex min-h-0 flex-1 flex-col pt-6">
-            <ChatPanel sessionId={session.id} enabled={chatEnabled} fullHeight />
-          </CardContent>
-        </Card>
-      </div>
+      <FollowUpChatInterface
+        sessionId={session.id}
+        companyName={session.company_name}
+        className="min-h-0 flex-1"
+      />
     </div>
   )
 }

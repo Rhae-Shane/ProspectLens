@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { extractCompanyDomain } from '@/lib/company-logo'
 import { cn } from '@/lib/utils'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
@@ -90,7 +89,7 @@ export function ReportList({
   }, [sessions, searchQuery])
 
   return (
-    <Card className="flex h-full min-h-0 w-full flex-col rounded-none ring-0">
+    <Card className="flex h-full max-h-full min-h-0 w-full flex-col rounded-none ring-0">
       <CardHeader className="shrink-0 space-y-1 border-b py-4">
         <CardTitle className="font-normal text-lg">{title}</CardTitle>
         <p className="text-muted-foreground text-xs">{subtitle}</p>
@@ -124,7 +123,7 @@ export function ReportList({
             </Button>
           </div>
         ) : (
-          <ScrollArea className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="flex flex-col gap-2 p-3">
               {filteredReports.map((session) => (
                 <ReportCard
@@ -135,7 +134,7 @@ export function ReportList({
                 />
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>
