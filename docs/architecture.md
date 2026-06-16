@@ -86,6 +86,31 @@ The compiled graph uses `AsyncPostgresSaver` (`langgraph-checkpoint-postgres`). 
 
 On mid-run failure the checkpoint is preserved so resume can continue. Post-graph finalize (save report, RAG index) runs on successful completion or when the graph is already at END but finalize previously failed.
 
+#### Failure & resume behavior
+
+| Scenario | Session status | Checkpoint | User action |
+|----------|----------------|------------|-------------|
+| Node throws mid-run | `failed` | Preserved (`can_resume: true`) | **Resume workflow** or **Restart from scratch** |
+| Backend killed mid-run | `running` or `failed` | Preserved | **Resume workflow** (UI on Sessions detail + Follow-up Chat N/A until complete) |
+| Graph finished, finalize failed (DB/RAG) | `failed` | At END (`can_resume: false`) | **Resume** runs finalize only (report save + RAG index) |
+| Successful completion | `completed` | Remains at END | N/A |
+| Fresh run or retry | `running` | Thread cleared first | Full pipeline from planner |
+
+**QC recovery loop** (in-graph, not checkpoint resume): low quality score routes to Recovery → Research again (up to `retry_count >= 2`), then proceeds to report generation.
+
+#### How to demo resume (manual QA)
+
+1. Start a workflow: `POST /api/v1/sessions/{id}/run` or UI **Run**.
+2. While status is `running`, stop the backend (`docker stop zylabs-backend-1`) or wait for a provider timeout.
+3. Check checkpoint: `GET /api/v1/sessions/{id}/workflow/state` → `has_checkpoint: true`, `can_resume: true`, `next_nodes` lists remaining graph nodes.
+4. Restart backend, then either:
+   - **API:** `POST /api/v1/sessions/{id}/resume`
+   - **UI:** open session → **Resume workflow** (failed/stuck sessions on Details or Workflow tab)
+5. Confirm SSE shows `workflow` event `resumed` and only **remaining** nodes execute (planner/research not re-run).
+6. For a full restart: **Restart from scratch** / `POST /retry` clears the checkpoint thread.
+
+Automated checkpoint test: `backend/tests/test_checkpoint_resume.py` (MemorySaver). E2E script: `backend/scripts/e2e_microsoft_test.py` logs `can_resume` during polling.
+
 ### Research Providers
 
 Research runs in parallel where API keys are configured:

@@ -16,7 +16,6 @@
 3. Research quality still varies by company size and public data availability
 4. No collaborative editing or shared annotations on reports
 5. PDF export is browser-print based — formatting varies by client
-6. LangGraph is defined but manually orchestrated — no checkpoint resume (see `docs/assignment-review.md`)
 
 ## Top 3 Improvements
 
@@ -78,6 +77,8 @@ Add confidence scoring and “source” badges to company snapshot fields (Found
 - JWT sign-in (no signup) with env-seeded users
 - pgvector RAG for chat (`search_report` tool)
 - Apollo firmographics merged into company snapshot
+- Native LangGraph `astream` + Postgres checkpoint resume (`POST /resume`, UI **Resume workflow**)
+- ChatGPT-style follow-up chat UI with tool traces and pgvector retrieval display
 - Richer `*_overview` blocks for customers, stakeholders, outreach
 - View Full Report + Export PDF on all section dashboards
 - Report validation node after generation
