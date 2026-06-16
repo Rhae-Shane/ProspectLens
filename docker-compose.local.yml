@@ -1,0 +1,17 @@
+# Local Docker demo — publish ports to the host (http://localhost:3000)
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8000:8000"
+
+  frontend:
+    ports:
+      - "3000:80"

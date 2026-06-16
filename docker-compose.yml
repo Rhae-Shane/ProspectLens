@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: prospectlens
       POSTGRES_PASSWORD: prospectlens
       POSTGRES_DB: prospectlens
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,8 +15,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -27,8 +23,6 @@ services:
 
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://prospectlens:prospectlens@postgres:5432/prospectlens
       REDIS_URL: redis://redis:6379/0
@@ -53,7 +47,7 @@ services:
       AUTH_USER_2_EMAIL: ${AUTH_USER_2_EMAIL:-dev@prospectlens.com}
       AUTH_USER_2_PASSWORD: ${AUTH_USER_2_PASSWORD:-}
       AUTH_USER_2_NAME: ${AUTH_USER_2_NAME:-User}
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost}
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,8 +59,6 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ""
-    ports:
-      - "3000:80"
     depends_on:
       - backend
 

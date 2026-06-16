@@ -34,7 +34,12 @@ ProspectLens is an AI Research Copilot that helps sales teams prepare for busine
 ## Quick Start (Docker)
 
 1. Copy `.env.example` to `.env` in the project root and add your API keys (at minimum `OPENAI_API_KEY` and `PERPLEXITY_API_KEY`).
-2. Run `docker compose up --build`
+2. Run:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
 3. Open http://localhost:3000 (frontend) and http://localhost:8000/docs (API)
 
 Postgres uses the `pgvector/pgvector:pg16` image. The backend enables the `vector` extension on startup.
@@ -137,6 +142,17 @@ pytest tests/ -v
 ```
 
 Includes graph routing, native `astream` execution, and checkpoint resume (`test_checkpoint_resume.py`).
+
+### CI/CD (manual)
+
+GitHub Actions workflows run **only when you trigger them** (not on every push):
+
+| Workflow | What it does |
+|----------|----------------|
+| **CI** | Backend `pytest` + frontend `npm run build` |
+| **Deploy Production** | Same tests, then deploy to production (HTTPS via Certbot) |
+
+Setup secrets (`DEPLOY_HOST`, `DEPLOY_DOMAIN`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#github-actions-manual-cicd).
 
 ### Demo: workflow failure & resume
 
