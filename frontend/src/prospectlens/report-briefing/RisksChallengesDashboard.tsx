@@ -11,12 +11,12 @@ import type { LucideIcon } from 'lucide-react'
 import { Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { buildRisksChallenges } from '@/lib/structured-report-utils'
-import { cn, formatDisplayTimestamp } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
 import type { RiskLevel, StructuredReport } from '@/types/structured-report'
 
@@ -139,7 +139,6 @@ export function RisksChallengesDashboard({
   updatedAt,
 }: RisksChallengesDashboardProps) {
   const overview = buildRisksChallenges(structured)
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
   const [insightTab, setInsightTab] = useState<RiskLevel>('high')
 
   const trendChartData = overview.risk_trend.map((point) => ({
@@ -168,23 +167,12 @@ export function RisksChallengesDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Risks & Challenges</h1>
-          <p className="text-muted-foreground text-sm">
-            Key risks and challenges that could impact {session.company_name}&apos;s business, growth, and operations
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              View Full Report
-            </Button>
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Risks & Challenges"
+        subtitle={`Key risks and challenges that could impact ${session.company_name}'s business, growth, and operations`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {overview.summary_counts.map((item) => {

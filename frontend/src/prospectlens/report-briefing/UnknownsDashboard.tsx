@@ -16,7 +16,6 @@ import type { LucideIcon } from 'lucide-react'
 import { Cell, Pie, PieChart } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
 import {
@@ -26,7 +25,8 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { buildUnknownsOverview } from '@/lib/structured-report-utils'
-import { cn, formatDisplayTimestamp } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
 import type { UnknownImpact, StructuredReport } from '@/types/structured-report'
 
@@ -190,7 +190,6 @@ interface UnknownsDashboardProps {
 
 export function UnknownsDashboard({ structured, session, updatedAt }: UnknownsDashboardProps) {
   const overview = buildUnknownsOverview(structured)
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
 
   const impactChartData = overview.impact_mix.map((item) => ({
     name: item.name,
@@ -243,24 +242,12 @@ export function UnknownsDashboard({ structured, session, updatedAt }: UnknownsDa
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Unknowns</h1>
-          <p className="text-muted-foreground text-sm">
-            Key unknowns and information gaps that could impact {session.company_name}&apos;s future
-            strategy and decision-making
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              View Full Report
-            </Button>
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Unknowns"
+        subtitle={`Key unknowns and information gaps that could impact ${session.company_name}'s future strategy and decision-making`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>

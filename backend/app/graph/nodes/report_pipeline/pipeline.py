@@ -17,6 +17,8 @@ from .extractors import (
     extract_snapshot,
     extract_sources,
     extract_stakeholder_research,
+    extract_apollo_firmographics,
+    firmographics_prompt_block,
     risks_from_analysis,
     signals_from_analysis,
     stakeholders_from_analysis,
@@ -165,11 +167,13 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
 
     snapshot = extract_snapshot(state)
     node_outputs["report_snapshot"] = {"sections": ["company_snapshot", "commercial_profile"]}
+    firmographics_block = firmographics_prompt_block(state)
 
     research_snippet = serialize_research_for_llm(state.get("raw_research", []), max_total_chars=8000)
     overview_result, tokens, cost = await openai_client.complete_json(
         COMPANY_OVERVIEW_SYSTEM,
         f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"{firmographics_block}\n\n"
         f"Snapshot:\n{json.dumps(snapshot, indent=2)}\n\n"
         f"Analysis:\n{json.dumps(analysis, indent=2)[:6000]}\n\n"
         f"Research:\n{research_snippet}",
@@ -224,6 +228,9 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     target_customers_result, tokens, cost = await openai_client.complete_json(
         TARGET_CUSTOMERS_SYSTEM,
         f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+        f"{firmographics_block}\n\n"
+        f"Named customers from analysis:\n{json.dumps(analysis.get('named_customers', []), indent=2)}\n\n"
+        f"Customer segments from analysis:\n{json.dumps(analysis.get('customer_segments', []), indent=2)}\n\n"
         f"Existing customer segments:\n{json.dumps(products.get('target_customers', []), indent=2)}\n\n"
         f"Commercial profile:\n{json.dumps(snapshot.get('commercial_profile', {}), indent=2)}\n\n"
         f"Products:\n{json.dumps(products.get('products', [])[:6], indent=2)}\n\n"
@@ -541,6 +548,21 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         snapshot["company_snapshot"]["company_type"] = company_overview.get("company_type")
     if company_overview.get("latest_funding"):
         snapshot["company_snapshot"]["latest_funding"] = company_overview.get("latest_funding")
+
+    apollo = extract_apollo_firmographics(state)
+    snap = snapshot["company_snapshot"]
+    field_map = {
+        "founded": ["founded"],
+        "hq": ["headquarters", "hq"],
+        "employees": ["employees"],
+        "valuation": ["valuation"],
+    }
+    for snap_key, overview_keys in field_map.items():
+        for key in overview_keys:
+            val = company_overview.get(key) or apollo.get(snap_key if snap_key != "hq" else "hq")
+            if val and str(val).strip() and str(val) != "Not confirmed":
+                snap[snap_key] = str(val).strip()
+                break
 
     structured: dict[str, Any] = {
         "header": header,

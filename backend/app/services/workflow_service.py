@@ -13,6 +13,7 @@ from app.logging_config import get_logger
 from app.models import ResearchSession, WorkflowEvent, WorkflowStatus
 from app.observability.events import event_emitter
 from app.services.session_service import SessionService
+from app.services.report_rag import report_rag
 
 logger = get_logger(__name__)
 
@@ -101,6 +102,19 @@ class WorkflowService:
                         await SessionService.save_report(db, session_id, report)
                         context = self._build_report_context(report)
                         await context_cache.set_report_context(str(session_id), context)
+                        try:
+                            chunk_count = await report_rag.index_report(str(session_id), report, db)
+                            logger.info(
+                                "report_rag_indexed",
+                                session_id=str(session_id),
+                                chunks=chunk_count,
+                            )
+                        except Exception as exc:
+                            logger.warning(
+                                "report_rag_index_failed",
+                                session_id=str(session_id),
+                                error=str(exc),
+                            )
 
                     session.status = WorkflowStatus.COMPLETED
                     session.workflow_status = "completed"

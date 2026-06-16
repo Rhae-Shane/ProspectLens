@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -22,11 +22,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getStructuredReport } from '@/lib/structured-report-utils'
+import { exportReportToPdf } from '@/lib/report-export'
 import { cn, formatDisplayTimestamp } from '@/lib/utils'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { BusinessSignalsDashboard } from '@/prospectlens/report-briefing/BusinessSignalsDashboard'
 import { CompanyOverviewDashboard } from '@/prospectlens/report-briefing/CompanyOverviewDashboard'
 import { ProductsServicesDashboard } from '@/prospectlens/report-briefing/ProductsServicesDashboard'
+import { ReportActionsContext } from '@/prospectlens/report-briefing/report-actions-context'
+import { ReportFullView } from '@/prospectlens/report-briefing/ReportFullView'
 import { RisksChallengesDashboard } from '@/prospectlens/report-briefing/RisksChallengesDashboard'
 import { StakeholdersDashboard } from '@/prospectlens/report-briefing/StakeholdersDashboard'
 import {
@@ -96,17 +99,33 @@ export function ReportWorkspace({
   backLabel = 'Back to Sessions',
 }: ReportWorkspaceProps) {
   const [activeSection, setActiveSection] = useState<ReportWorkspaceSectionId>('company_overview')
+  const [fullReportOpen, setFullReportOpen] = useState(false)
   const structured = getStructuredReport(report, {
     company_name: session.company_name,
     website: session.website,
     objective: session.objective,
   })
 
+  const reportActions = useMemo(
+    () => ({
+      onViewFullReport: () => setFullReportOpen(true),
+      onExportPdf: () => exportReportToPdf(session.company_name, structured),
+    }),
+    [session.company_name, structured]
+  )
+
   const createdAt = formatDisplayTimestamp(session.created_at)
 
   const sessionTitle = `${session.company_name} Research`
 
   return (
+    <ReportActionsContext.Provider value={reportActions}>
+    <ReportFullView
+      open={fullReportOpen}
+      onOpenChange={setFullReportOpen}
+      report={report}
+      session={session}
+    />
     <div className="flex h-full min-h-0 w-full overflow-hidden">
       <aside className="flex w-[260px] shrink-0 flex-col border-r bg-muted/20">
         <div className="shrink-0 border-b px-4 py-4">
@@ -243,5 +262,6 @@ export function ReportWorkspace({
         </ScrollArea>
       </main>
     </div>
+    </ReportActionsContext.Provider>
   )
 }

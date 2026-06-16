@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { buildCompanyOverview } from '@/lib/structured-report-utils'
-import { formatDisplayTimestamp } from '@/lib/utils'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
 import type { StructuredReport } from '@/types/structured-report'
 
@@ -57,40 +57,24 @@ interface CompanyOverviewDashboardProps {
   structured: StructuredReport
   session: ReportSessionMeta
   updatedAt?: string
-  onViewFullReport?: () => void
 }
 
 export function CompanyOverviewDashboard({
   structured,
   session,
   updatedAt,
-  onViewFullReport,
 }: CompanyOverviewDashboardProps) {
   const overview = buildCompanyOverview(structured)
   const snap = structured.company_snapshot
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Company Overview</h1>
-          <p className="text-muted-foreground text-sm">
-            Key information and business snapshot of {session.company_name}.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            {onViewFullReport ? (
-              <Button variant="outline" size="sm" onClick={onViewFullReport}>
-                View Full Report
-              </Button>
-            ) : null}
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Company Overview"
+        subtitle={`Key information and business snapshot of ${session.company_name}.`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

@@ -111,6 +111,7 @@ class ApolloClient:
                 "provider": "apollo",
                 "content": content,
                 "sources": sources,
+                "organization": org,
             },
             max(len(content) // 4, 100),
             0.0,

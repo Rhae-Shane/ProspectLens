@@ -13,7 +13,6 @@ import type { LucideIcon } from 'lucide-react'
 import { Cell, Pie, PieChart } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
 import {
@@ -24,7 +23,8 @@ import {
 } from '@/components/ui/empty'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { buildDiscoveryQuestionsOverview } from '@/lib/structured-report-utils'
-import { cn, formatDisplayTimestamp } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
 import type {
   DiscoveryImpact,
@@ -159,7 +159,6 @@ export function DiscoveryQuestionsDashboard({
   updatedAt,
 }: DiscoveryQuestionsDashboardProps) {
   const overview = buildDiscoveryQuestionsOverview(structured)
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
   const [activeCategory, setActiveCategory] = useState('All')
 
   const categoryTabs = useMemo(() => {
@@ -195,24 +194,12 @@ export function DiscoveryQuestionsDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Discovery Questions</h1>
-          <p className="text-muted-foreground text-sm">
-            Key questions to explore further with {session.company_name} to uncover deeper insights
-            and validate opportunities
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              View Full Report
-            </Button>
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Discovery Questions"
+        subtitle={`Key questions to explore further with ${session.company_name} to uncover deeper insights and validate opportunities`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

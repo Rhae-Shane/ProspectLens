@@ -57,68 +57,46 @@ export function buildCompanyOverview(structured: StructuredReport): CompanyOverv
   const keyMetrics = [
     {
       label: 'Annual Revenue (Est.)',
-      value: commercial.arr ?? snap.valuation ?? 'Not confirmed',
-      change: commercial.arr_growth ?? '+20% YoY',
-      change_label: 'YoY',
+      value: commercial.arr ?? 'Not confirmed',
+      change: commercial.arr_growth ?? '',
+      change_label: commercial.arr_growth ? 'YoY' : '',
     },
     {
       label: 'Total Customers',
       value: commercial.customers ?? 'Not confirmed',
-      change: '+25% YoY',
-      change_label: 'YoY',
+      change: '',
+      change_label: '',
     },
     {
-      label: 'Transaction Volume',
-      value: commercial.total_raised ?? 'Not confirmed',
-      change: '+20% YoY',
-      change_label: 'YoY',
+      label: 'Total Funding',
+      value: commercial.total_raised ?? snap.valuation ?? 'Not confirmed',
+      change: '',
+      change_label: '',
     },
     {
       label: 'Employees',
-      value: snap.employees,
-      change: snap.open_roles ? `${snap.open_roles} hiring` : '+15% YoY',
-      change_label: 'YoY',
+      value: snap.employees ?? 'Not confirmed',
+      change: snap.open_roles ?? '',
+      change_label: snap.open_roles ? 'Hiring' : '',
     },
     {
-      label: 'Countries Supported',
-      value: commercial.geographic_presence ?? 'Global',
-      change: 'Global presence',
+      label: 'Geographic Presence',
+      value: commercial.geographic_presence ?? 'Not confirmed',
+      change: '',
       change_label: '',
     },
-    {
-      label: 'Uptime',
-      value: '99.99%',
-      change: 'System reliability',
-      change_label: '',
-    },
-  ]
+  ].filter((m) => m.value !== 'Not confirmed' || m.label === 'Employees')
 
-  const commercialTrends = [
-    {
-      label: 'Customer Growth',
-      value: commercial.arr_growth ?? '+25% YoY',
-      change: commercial.arr_growth ?? '+25% YoY',
-      trend: defaultTrend(10),
-    },
-    {
-      label: 'Revenue Growth',
-      value: commercial.arr_growth ?? '+22% YoY',
-      change: commercial.arr_growth ?? '+22% YoY',
-      trend: defaultTrend(8),
-    },
-    {
-      label: 'Gross Margin',
-      value: '~70% High',
-      change: 'Strong margins',
-      trend: defaultTrend(12),
-    },
-    {
-      label: 'Enterprise Penetration',
-      value: commercial.enterprise_min_contract ?? 'Growing',
-      change: 'Enterprise adoption',
-      trend: defaultTrend(6),
-    },
-  ]
+  const commercialTrends = commercial.arr_growth
+    ? [
+        {
+          label: 'Revenue / ARR',
+          value: commercial.arr_growth,
+          change: commercial.arr_growth,
+          trend: defaultTrend(10),
+        },
+      ]
+    : []
 
   const growthSignals = structured.signals.slice(0, 4).map((signal) => ({
     title: signal.text.slice(0, 80),
@@ -152,22 +130,18 @@ export function buildCompanyOverview(structured: StructuredReport): CompanyOverv
       `${structured.header.company_name} operates in ${snap.industry}. ${structured.header.tagline ?? ''}`.trim(),
     key_metrics: keyMetrics,
     commercial_trends: commercialTrends,
-    commercial_summary: `${structured.header.company_name} shows growth across customers and revenue with expanding enterprise adoption.`,
-    market_share: {
+    commercial_summary: structured.company_overview?.commercial_summary ?? '',
+    market_share: structured.company_overview?.market_share ?? {
       label: 'Market Share',
-      value: 'Growing market position',
-      percent: 16,
+      value: 'Not confirmed',
+      percent: 0,
     },
-    competitors: ['Competitor A', 'Competitor B', 'Competitor C'],
-    industry_standing: [
-      'Strong product portfolio',
-      'Growing customer base',
-      'Expanding geographic reach',
-    ],
+    competitors: structured.company_overview?.competitors ?? [],
+    industry_standing: [],
     growth_signals: growthSignals,
     recent_news: recentNews,
-    strengths: strengths.length ? strengths : ['Developer-first platform', 'Global infrastructure'],
-    challenges: challenges.length ? challenges : ['Increasing competition', 'Regulatory scrutiny'],
+    strengths: strengths,
+    challenges: challenges,
   }
 }
 
@@ -227,11 +201,10 @@ export function buildProductsServices(structured: StructuredReport): ProductsSer
       coreProducts.length === 1 ? '' : 's'
     } across ${snap.industry}. ${structured.header.tagline ?? ''}`.trim(),
     portfolio_metrics: [
-      { label: 'Products & Features', value: `${coreProducts.length}+` },
-      { label: 'Countries & Regions', value: commercial.geographic_presence ?? 'Global' },
-      { label: 'Customers', value: commercial.customers ?? 'Growing' },
-      { label: 'API Uptime', value: '99.99%' },
-    ],
+      { label: 'Products & Features', value: String(coreProducts.length) },
+      { label: 'Geographic Presence', value: commercial.geographic_presence ?? 'Not confirmed' },
+      { label: 'Customers', value: commercial.customers ?? 'Not confirmed' },
+    ].filter((m) => m.value !== 'Not confirmed'),
     categories: categories.length
       ? categories
       : [
@@ -554,6 +527,15 @@ export function buildTargetCustomersOverview(structured: StructuredReport): Targ
       value: commercial.enterprise_min_contract,
     })
   }
+  if (summaryMetrics.length === 0 && segments.length > 0) {
+    summaryMetrics.push(
+      { label: 'Customer Segments', value: String(segments.length), hint: 'Identified in research' },
+      { label: 'Primary Segment', value: segments[0].segment, hint: 'Core ICP' }
+    )
+  }
+  if (snap.employees?.trim() && !summaryMetrics.some((m) => m.label === 'Team Scale')) {
+    summaryMetrics.push({ label: 'Company Scale', value: snap.employees, hint: 'Employees' })
+  }
 
   return {
     summary_metrics: summaryMetrics,
@@ -626,13 +608,33 @@ export function buildOutreachOverview(structured: StructuredReport): OutreachOve
       impact: 'medium' as const,
       score: 60,
     })),
-    outreach_timing: [],
+    outreach_timing: strategies.length ? defaultOutreachTiming() : [],
     target_personas: personas,
     messaging_themes: legacy.hook
       ? [{ title: 'Primary Hook', description: legacy.hook }]
       : [],
-    messaging_tips: [],
+    messaging_tips: strategies.length
+      ? [
+          'Personalize based on role and company needs.',
+          'Focus on business outcomes, not just features.',
+          'Use data and case studies to build credibility.',
+          'Keep messages concise, relevant, and actionable.',
+        ]
+      : [],
   }
+}
+
+function defaultOutreachTiming(): OutreachOverview['outreach_timing'] {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const times = ['9AM', '11AM', '1PM', '3PM', '5PM', '7PM']
+  const pattern: Array<'best' | 'good' | 'okay'> = ['okay', 'good', 'best', 'good', 'okay', 'okay']
+  return days.flatMap((day) =>
+    times.map((time, index) => ({
+      day,
+      time,
+      quality: pattern[index] ?? 'good',
+    }))
+  )
 }
 
 function inferUnknownCategory(text: string): string {

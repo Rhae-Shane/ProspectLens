@@ -64,9 +64,16 @@ export interface ChatToolUsage {
   sources?: SourceItem[]
 }
 
+export interface RagSectionRef {
+  section?: string
+  title?: string
+  score?: number
+}
+
 export interface ChatMessageMetadata {
   tools?: string[]
   tools_used?: ChatToolUsage[]
+  rag_sections?: RagSectionRef[]
 }
 
 export interface ChatMessage {

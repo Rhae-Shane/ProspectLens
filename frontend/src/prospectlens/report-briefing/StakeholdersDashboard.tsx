@@ -10,7 +10,6 @@ import type { LucideIcon } from 'lucide-react'
 import { Cell, Pie, PieChart } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
 import {
@@ -20,7 +19,8 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { buildStakeholdersOverview } from '@/lib/structured-report-utils'
-import { cn, formatDisplayTimestamp } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import { EntityLogo } from '@/prospectlens/EntityLogo'
 import { PersonAvatar } from '@/prospectlens/PersonAvatar'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
@@ -64,7 +64,6 @@ export function StakeholdersDashboard({
   updatedAt,
 }: StakeholdersDashboardProps) {
   const overview = buildStakeholdersOverview(structured)
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
 
   const chartData = overview.groups.map((group, index) => ({
     name: group.name,
@@ -82,23 +81,12 @@ export function StakeholdersDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Stakeholders</h1>
-          <p className="text-muted-foreground text-sm">
-            Key people and organizations involved with or influencing {session.company_name}&apos;s business
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              View Full Report
-            </Button>
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Stakeholders"
+        subtitle={`Key people and organizations involved with or influencing ${session.company_name}'s business`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

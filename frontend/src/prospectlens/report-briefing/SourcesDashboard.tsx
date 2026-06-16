@@ -15,7 +15,6 @@ import type { LucideIcon } from 'lucide-react'
 import { Cell, Pie, PieChart } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type ChartConfig, ChartContainer } from '@/components/ui/chart'
 import {
@@ -25,7 +24,8 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { buildSourcesOverview } from '@/lib/structured-report-utils'
-import { cn, formatDisplayTimestamp } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ReportSectionHeader } from '@/prospectlens/report-briefing/ReportSectionHeader'
 import type { ReportSessionMeta } from '@/prospectlens/report-briefing/ReportSectionContent'
 import type { StructuredReport } from '@/types/structured-report'
 
@@ -119,7 +119,6 @@ interface SourcesDashboardProps {
 
 export function SourcesDashboard({ structured, session, updatedAt }: SourcesDashboardProps) {
   const overview = buildSourcesOverview(structured)
-  const formattedDate = formatDisplayTimestamp(updatedAt ?? session.created_at)
   const totalSources = overview.summary_counts[0]?.value ?? overview.sources.length
 
   const typeChartData = overview.source_type_mix.map((item, index) => ({
@@ -154,24 +153,12 @@ export function SourcesDashboard({ structured, session, updatedAt }: SourcesDash
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">Sources</h1>
-          <p className="text-muted-foreground text-sm">
-            Trusted sources and references used to build this research report on{' '}
-            {session.company_name}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              View Full Report
-            </Button>
-            <Button size="sm">Export PDF</Button>
-          </div>
-          <p className="text-muted-foreground text-xs">Last updated: {formattedDate}</p>
-        </div>
-      </div>
+      <ReportSectionHeader
+        title="Sources"
+        subtitle={`Trusted sources and references used to build this research report on ${session.company_name}`}
+        updatedAt={updatedAt}
+        sessionCreatedAt={session.created_at}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

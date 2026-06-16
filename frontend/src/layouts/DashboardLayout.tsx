@@ -7,7 +7,6 @@ import { SimpleIcon } from '@/components/simple-icon'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { users } from '@/data/users'
 import { cn } from '@/lib/utils'
 import { PREFERENCE_DEFAULTS } from '@/lib/preferences/preferences-config'
 
@@ -59,7 +58,7 @@ export function DashboardLayout() {
                   <SimpleIcon icon={siGithub} className="fill-primary-foreground" />
                 </a>
               </Button>
-              <AccountSwitcher users={users} />
+              <AccountSwitcher />
             </div>
           </div>
         </header>

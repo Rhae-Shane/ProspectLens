@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-import json
 import re
 from typing import Any
 
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.providers import (
     apollo_client,
@@ -12,6 +12,7 @@ from app.providers import (
     perplexity_client,
     tavily_client,
 )
+from app.services.report_rag import report_rag
 
 CHAT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -35,7 +36,7 @@ CHAT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "id": "search_report",
         "label": "Search Report",
-        "description": "Find relevant sections in the existing research briefing",
+        "description": "Semantic search over the research briefing (RAG)",
         "icon": "search",
     },
     {
@@ -68,7 +69,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "Use when the user asks what happened lately, new announcements, or news since the report."
     ),
     "search_report": (
-        "Search the existing research briefing for relevant sections. "
+        "Semantically search the research briefing using RAG for the most relevant sections. "
         "Use first before external tools when the answer may already be in the report."
     ),
     "deep_research": (
@@ -84,11 +85,13 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
 
 @dataclass
 class ChatToolContext:
+    session_id: str
     company_name: str
     website: str
     company_context: str
     report_context: str
     report_content: dict[str, Any]
+    db: AsyncSession
 
 
 def get_chat_tools() -> list[dict[str, Any]]:
@@ -163,39 +166,37 @@ async def execute_recent_news(
     return formatted, usage, tokens, cost
 
 
-def execute_search_report(ctx: ChatToolContext, query: str) -> tuple[str, dict[str, Any], int, float]:
-    terms = [term for term in re.findall(r"[a-z0-9]+", query.lower()) if len(term) > 2]
-    matches: list[str] = []
+async def execute_search_report(ctx: ChatToolContext, query: str) -> tuple[str, dict[str, Any], int, float]:
+    content, chunks = await report_rag.search(
+        ctx.session_id,
+        query,
+        ctx.report_content,
+        ctx.db,
+        top_k=8,
+    )
+    if not chunks:
+        # Keyword fallback when the index is empty or similarity is too low.
+        terms = [term for term in re.findall(r"[a-z0-9]+", query.lower()) if len(term) > 2]
+        matches: list[str] = []
+        if terms:
+            for block in ctx.report_context.split("\n\n"):
+                block_lower = block.lower()
+                if any(term in block_lower for term in terms):
+                    matches.append(block.strip())
+        if matches:
+            content = "Report matches:\n\n" + "\n\n".join(matches[:10])
+        elif ctx.report_context:
+            content = f"Report preview:\n{ctx.report_context[:2500]}"
+        else:
+            content = "No matching sections found in the research briefing for that query."
 
-    if terms:
-        for block in ctx.report_context.split("\n\n"):
-            block_lower = block.lower()
-            if any(term in block_lower for term in terms):
-                matches.append(block.strip())
-
-        structured = ctx.report_content.get("structured") or {}
-        if structured:
-            structured_text = json.dumps(structured, indent=2)
-            for line in structured_text.splitlines():
-                line_lower = line.lower()
-                if any(term in line_lower for term in terms):
-                    matches.append(line.strip())
-
-    if not matches and terms:
-        return (
-            "No matching sections found in the research briefing for that query.",
-            {"tool": "search_report", "query": query, "provider": "report"},
-            20,
-            0.0,
-        )
-
-    if not matches:
-        preview = ctx.report_context[:2500]
-        content = f"Report preview:\n{preview}"
-    else:
-        content = "Report matches:\n\n" + "\n\n".join(matches[:10])
-
-    usage = {"tool": "search_report", "query": query, "provider": "report", "sources": []}
+    usage = {
+        "tool": "search_report",
+        "query": query,
+        "provider": "rag",
+        "sources": [{"title": c.get("title"), "section": c.get("section")} for c in chunks[:5]],
+        "chunks_matched": len(chunks),
+    }
     return content, usage, max(len(content) // 4, 20), 0.0
 
 
@@ -241,7 +242,7 @@ async def run_chat_tool(
         query = str(args.get("query", "")).strip()
         if not query:
             raise ValueError("search_report requires a query")
-        return execute_search_report(ctx, query)
+        return await execute_search_report(ctx, query)
 
     if tool_id == "deep_research":
         query = str(args.get("query", "")).strip()

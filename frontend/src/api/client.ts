@@ -8,13 +8,24 @@ import type {
   WorkflowEvent,
 } from '@/types/report'
 
+import { getAuthToken } from '@/lib/auth'
+import type { AuthUser } from '@/lib/auth'
+
 const API_URL = import.meta.env.VITE_API_URL || ''
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
     ...options,
   })
+  if (res.status === 401) {
+    throw new Error('Session expired. Please sign in again.')
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || 'Request failed')
@@ -22,7 +33,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface SignInResponse {
+  access_token: string
+  token_type: string
+  user: AuthUser
+}
+
 export const api = {
+  signIn: (email: string, password: string) =>
+    request<SignInResponse>('/api/v1/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  me: () => request<AuthUser>('/api/v1/auth/me'),
+
   createSession: (data: CreateSessionPayload) =>
     request<Session>('/api/v1/sessions', { method: 'POST', body: JSON.stringify(data) }),
 
@@ -59,5 +84,7 @@ export const api = {
 }
 
 export function getEventStreamUrl(sessionId: string) {
-  return `${API_URL}/api/v1/sessions/${sessionId}/events/stream`
+  const token = getAuthToken()
+  const base = `${API_URL}/api/v1/sessions/${sessionId}/events/stream`
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base
 }

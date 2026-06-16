@@ -121,6 +121,7 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
         {messages.map((msg) => {
           const toolsUsed = msg.metadata?.tools_used ?? []
           const userTools = msg.metadata?.tools ?? []
+          const ragSections = msg.metadata?.rag_sections ?? []
 
           return (
             <div
@@ -151,6 +152,18 @@ export function ChatPanel({ sessionId, enabled, fullHeight = false }: Props) {
                         </Badge>
                       )
                     })}
+                  </div>
+                ) : null}
+
+                {msg.role === 'assistant' && ragSections.length > 0 ? (
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {ragSections.map((section, index) => (
+                      <Badge key={`${section.section}-${index}`} variant="secondary" className="gap-1 text-[10px]">
+                        <Search className="size-3" />
+                        {section.title ?? section.section}
+                        {section.score ? ` (${Math.round(section.score * 100)}%)` : null}
+                      </Badge>
+                    ))}
                   </div>
                 ) : null}
 

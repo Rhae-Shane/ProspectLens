@@ -8,13 +8,17 @@ from app.cache.context_cache import context_cache
 from app.models import ChatMessage, WorkflowStatus
 from app.services.chat_agent import run_chat_agent
 from app.services.chat_tools import ChatToolContext, normalize_tool_ids
+from app.services.report_rag import format_rag_context, report_rag
 from app.services.session_service import SessionService
 
 CHAT_SYSTEM = """You are a sales research assistant helping prepare for a business meeting.
 
-You have tools to answer follow-up questions. Use them strategically:
+You receive semantically retrieved excerpts from the research report (RAG) that are most
+relevant to the user's question. Use those excerpts as your primary source of truth.
 
-1. **search_report** — Check the briefing first when the answer may already exist.
+You also have tools to answer follow-up questions. Use them strategically:
+
+1. **search_report** — Semantic RAG search over the briefing when you need more report context.
 2. **company_enrichment** — For revenue, employees, funding, HQ, tech stack (prefer over generic web search).
 3. **recent_news** — For what happened lately, announcements, or news since the report.
 4. **web_search** — For current facts missing from the report and enrichment.
@@ -22,10 +26,11 @@ You have tools to answer follow-up questions. Use them strategically:
 6. **scrape_website** — To read a specific page (pricing, careers, docs); default to company website if no URL given.
 
 Guidelines:
+- Ground answers in the retrieved report excerpts first; do not invent facts.
 - Prefer the report and report-native tools before paid external lookups when possible.
-- For revenue/headcount/funding questions, try search_report then company_enrichment, then web_search.
+- For revenue/headcount/funding questions, try the retrieved excerpts then company_enrichment, then web_search.
 - Synthesize tool results into concise, actionable answers for sales meeting prep.
-- Cite sources when using external tools."""
+- Cite which report section your answer draws from when possible."""
 
 
 class ChatService:
@@ -52,28 +57,35 @@ class ChatService:
             raise ValueError("Report must be completed before chatting")
 
         report_context = await context_cache.get_report_context(str(session_id))
-        if not report_context and session.report:
+        report_content = session.report.content if session.report else {}
+        if not report_context and report_content:
             from app.services.workflow_service import WorkflowService
 
-            report_context = WorkflowService._build_report_context(session.report.content)
+            report_context = WorkflowService._build_report_context(report_content)
             await context_cache.set_report_context(str(session_id), report_context)
+
+        # Ensure the report is indexed for semantic retrieval (lazy on first chat).
+        await report_rag.ensure_indexed(str(session_id), report_content, db)
+        rag_chunks = await report_rag.retrieve(str(session_id), message, db, top_k=8)
+        rag_context = format_rag_context(rag_chunks)
 
         history = await ChatService.get_history(db, session_id)
         history_text = "\n".join(f"{m.role}: {m.content}" for m in history[-6:])
         report_context = report_context or ""
-        report_content = session.report.content if session.report else {}
         company_context = f"Company: {session.company_name}\nWebsite: {session.website}"
         enabled_tools = normalize_tool_ids(tools)
         tool_context = ChatToolContext(
+            session_id=str(session_id),
             company_name=session.company_name,
             website=session.website,
             company_context=company_context,
             report_context=report_context,
             report_content=report_content,
+            db=db,
         )
 
-        user_prompt = f"""Research Report Context:
-{report_context}
+        user_prompt = f"""Relevant Report Excerpts (semantic retrieval):
+{rag_context}
 
 Company Context:
 {company_context}
@@ -98,6 +110,11 @@ User Question: {message}"""
         assistant_metadata: dict = {}
         if tools_used:
             assistant_metadata["tools_used"] = tools_used
+        if rag_chunks:
+            assistant_metadata["rag_sections"] = [
+                {"section": c.get("section"), "title": c.get("title"), "score": c.get("score")}
+                for c in rag_chunks[:5]
+            ]
 
         user_msg = ChatMessage(
             id=uuid.uuid4(),
@@ -105,7 +122,7 @@ User Question: {message}"""
             role="user",
             content=message,
             tokens=0,
-            metadata=user_metadata,
+            metadata_=user_metadata,
         )
         assistant_msg = ChatMessage(
             id=uuid.uuid4(),
@@ -113,7 +130,7 @@ User Question: {message}"""
             role="assistant",
             content=response_text,
             tokens=tokens,
-            metadata=assistant_metadata,
+            metadata_=assistant_metadata,
         )
         db.add(user_msg)
         db.add(assistant_msg)

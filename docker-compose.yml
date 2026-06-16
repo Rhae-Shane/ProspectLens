@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: prospectlens
       POSTGRES_PASSWORD: prospectlens
@@ -45,6 +45,14 @@ services:
       LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-prospectlens}
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-me-in-production}
+      AUTH_TOKEN_EXPIRE_HOURS: ${AUTH_TOKEN_EXPIRE_HOURS:-168}
+      AUTH_USER_1_EMAIL: ${AUTH_USER_1_EMAIL:-admin@prospectlens.local}
+      AUTH_USER_1_PASSWORD: ${AUTH_USER_1_PASSWORD:-changeme123}
+      AUTH_USER_1_NAME: ${AUTH_USER_1_NAME:-Admin}
+      AUTH_USER_2_EMAIL: ${AUTH_USER_2_EMAIL:-}
+      AUTH_USER_2_PASSWORD: ${AUTH_USER_2_PASSWORD:-}
+      AUTH_USER_2_NAME: ${AUTH_USER_2_NAME:-User}
       CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost
     depends_on:
       postgres:
