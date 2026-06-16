@@ -346,7 +346,7 @@ class ReportRAG:
             distance = _cosine_distance(query_vec, list(row.embedding))
             if distance > MAX_DISTANCE:
                 continue
-            similarity = round(1.0 - distance, 3)
+            similarity = float(round(1.0 - float(distance), 3))
             chunks.append(
                 {
                     "section": row.section,

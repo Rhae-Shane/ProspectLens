@@ -112,7 +112,11 @@ User Question: {message}"""
             assistant_metadata["tools_used"] = tools_used
         if rag_chunks:
             assistant_metadata["rag_sections"] = [
-                {"section": c.get("section"), "title": c.get("title"), "score": c.get("score")}
+                {
+                    "section": c.get("section"),
+                    "title": c.get("title"),
+                    "score": float(c["score"]) if c.get("score") is not None else None,
+                }
                 for c in rag_chunks[:5]
             ]
 
