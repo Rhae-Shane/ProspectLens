@@ -28,7 +28,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ChatPanel } from '@/prospectlens/ChatPanel'
 import { CompanyLogo } from '@/prospectlens/CompanyLogo'
 import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
 import { ReportSectionsView } from '@/prospectlens/report-briefing/ReportSectionsView'
@@ -36,6 +35,7 @@ import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { WorkflowProgress } from '@/prospectlens/WorkflowProgress'
 import { WorkflowRecoveryActions } from '@/prospectlens/WorkflowRecoveryActions'
 import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
+import { FollowUpChatInterface } from '@/pages/follow-up-chat/_components/follow-up-chat-interface'
 
 import { WorkspaceEmptyState } from '@/components/workspace-empty-state'
 
@@ -253,8 +253,17 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
   const createdAt = parseISO(session.created_at)
   const domain = extractCompanyDomain(session.website)
 
+  const isChatView = activeView === 'chat'
+
   return (
-    <div className="grid h-full min-h-0 overflow-hidden lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:divide-x">
+    <div
+      className={cn(
+        'grid h-full min-h-0 overflow-hidden lg:divide-x',
+        isChatView
+          ? 'lg:grid-cols-[minmax(200px,220px)_minmax(0,1fr)]'
+          : 'lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)]'
+      )}
+    >
       <aside className="flex min-h-0 flex-col border-b bg-muted/20 lg:border-b-0">
         <div className="shrink-0 border-b p-5">
           <div className="flex flex-col items-center gap-3 text-center">
@@ -297,20 +306,37 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
-        <div className="shrink-0 border-b bg-muted/10 px-4 py-3 md:px-6">
-          <div className="flex flex-wrap gap-2">
-            <QuickInfoChip icon={Globe} label="Website" value={domain ?? session.website} href={session.website} />
-            <QuickInfoChip icon={Calendar} label="Created" value={format(createdAt, 'MMM d, yyyy · h:mm a')} />
-            {session.total_tokens > 0 ? (
-              <QuickInfoChip
-                icon={Coins}
-                label="Usage"
-                value={`${session.total_tokens.toLocaleString()} tokens · ${formatCost(session.total_cost_usd)}`}
-              />
-            ) : null}
+        {!isChatView ? (
+          <div className="shrink-0 border-b bg-muted/10 px-4 py-3 md:px-6">
+            <div className="flex flex-wrap gap-2">
+              <QuickInfoChip icon={Globe} label="Website" value={domain ?? session.website} href={session.website} />
+              <QuickInfoChip icon={Calendar} label="Created" value={format(createdAt, 'MMM d, yyyy · h:mm a')} />
+              {session.total_tokens > 0 ? (
+                <QuickInfoChip
+                  icon={Coins}
+                  label="Usage"
+                  value={`${session.total_tokens.toLocaleString()} tokens · ${formatCost(session.total_cost_usd)}`}
+                />
+              ) : null}
+            </div>
           </div>
-        </div>
+        ) : null}
 
+        {isChatView ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {session.status === 'completed' && session.report ? (
+              <FollowUpChatInterface
+                sessionId={session.id}
+                companyName={session.company_name}
+                className="min-h-0 flex-1"
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-6 text-center text-muted-foreground text-sm">
+                Complete the research workflow to start follow-up chat.
+              </div>
+            )}
+          </div>
+        ) : (
         <ScrollArea className="h-full min-h-0 flex-1">
           <div className="space-y-6 p-4 md:p-6">
             {activeView === 'details' && (
@@ -468,20 +494,6 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
               </>
             )}
 
-            {activeView === 'chat' && (
-              <>
-                <ViewSectionHeader
-                  title="Follow-up Chat"
-                  description="Ask questions about this company briefing."
-                />
-                <Card>
-                  <CardContent className="pt-6">
-                    <ChatPanel sessionId={session.id} enabled={session.status === 'completed'} />
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
             {activeView === 'trace' && (
               <>
                 <ViewSectionHeader
@@ -501,6 +513,7 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
             )}
           </div>
         </ScrollArea>
+        )}
       </main>
     </div>
   )

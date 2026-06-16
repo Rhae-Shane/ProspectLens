@@ -62,9 +62,9 @@ export function SessionsWorkspace() {
     <>
       <div
         data-content-padding="false"
-        className="grid min-h-0 w-full max-w-none flex-1 overflow-hidden lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] lg:divide-x"
+        className="grid h-full min-h-0 w-full max-w-none flex-1 overflow-hidden lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:divide-x"
       >
-        <div className="h-full overflow-hidden">
+        <div className="flex min-h-0 flex-col overflow-hidden">
           <SessionList
             sessions={sessions}
             selectedSessionId={selectedSessionId}
@@ -76,7 +76,7 @@ export function SessionsWorkspace() {
             onStatusFilterChange={setStatusFilter}
           />
         </div>
-        <div className="hidden h-full overflow-hidden lg:block">
+        <div className="hidden h-full min-h-0 overflow-hidden lg:block">
           <SessionDetailsPanel sessionId={selectedSessionId} expectRunning={expectRunning} />
         </div>
       </div>
