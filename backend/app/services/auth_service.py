@@ -55,13 +55,18 @@ async def ensure_seed_users(db: AsyncSession) -> None:
 
     for seed in seeds:
         email = seed["email"].lower()
+        password = seed["password"]
+        name = seed.get("name") or email.split("@")[0]
         existing = await get_user_by_email(db, email)
         if existing:
+            existing.name = name
+            existing.password_hash = hash_password(password)
+            existing.is_active = True
             continue
         user = User(
             email=email,
-            name=seed.get("name") or email.split("@")[0],
-            password_hash=hash_password(seed["password"]),
+            name=name,
+            password_hash=hash_password(password),
             is_active=True,
         )
         db.add(user)

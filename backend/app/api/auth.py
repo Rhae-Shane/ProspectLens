@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -11,8 +11,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class SignInRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        email = value.strip().lower()
+        if "@" not in email or not email.split("@")[0]:
+            raise ValueError("Invalid email address")
+        return email
 
 
 class UserResponse(BaseModel):

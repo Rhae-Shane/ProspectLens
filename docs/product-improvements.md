@@ -12,10 +12,11 @@
 ## 5 Weaknesses
 
 1. No CRM integration (Salesforce, HubSpot)
-2. Single-user, no auth or team isolation
+2. Auth exists but sessions are not user-scoped — all authenticated users see the same session list
 3. Research quality still varies by company size and public data availability
 4. No collaborative editing or shared annotations on reports
 5. PDF export is browser-print based — formatting varies by client
+6. LangGraph is defined but manually orchestrated — no checkpoint resume (see `docs/assignment-review.md`)
 
 ## Top 3 Improvements
 
@@ -74,6 +75,7 @@ Add confidence scoring and “source” badges to company snapshot fields (Found
 
 ## Recently Shipped
 
+- JWT sign-in (no signup) with env-seeded users
 - pgvector RAG for chat (`search_report` tool)
 - Apollo firmographics merged into company snapshot
 - Richer `*_overview` blocks for customers, stakeholders, outreach

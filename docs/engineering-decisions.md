@@ -108,7 +108,7 @@
 2. No Postgres checkpointer wired yet (graph compiles without checkpointer)
 3. Alembic migrations not copied into production Docker image — `create_all` used on startup in dev
 4. Report schema validation is lenient — malformed LLM output could partially fail
-5. No authentication or rate limiting on APIs
+5. JWT auth added but sessions are not user-scoped; no rate limiting on APIs
 6. Chat history truncation is hardcoded to last 6 messages
 7. Existing sessions do not auto-reindex RAG when report schema changes without re-run
 
