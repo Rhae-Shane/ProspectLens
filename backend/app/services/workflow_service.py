@@ -16,7 +16,15 @@ from app.services.session_service import SessionService
 
 logger = get_logger(__name__)
 
-NODE_ORDER = ["planner", "research", "analyze", "quality_check", "recovery", "report_generator"]
+NODE_ORDER = [
+    "planner",
+    "research",
+    "analyze",
+    "quality_check",
+    "recovery",
+    "report_generator",
+    "report_validation",
+]
 
 _running_tasks: dict[str, asyncio.Task] = {}
 
@@ -80,6 +88,9 @@ class WorkflowService:
             current_state = await self._run_node_with_events(
                 session_id, "report_generator", current_state
             )
+            current_state = await self._run_node_with_events(
+                session_id, "report_validation", current_state
+            )
             final_state = current_state
 
             async with async_session_factory() as db:
@@ -132,6 +143,7 @@ class WorkflowService:
             quality_check_node,
             recovery_node,
             report_generator_node,
+            report_validation_node,
             research_node,
         )
 
@@ -142,6 +154,7 @@ class WorkflowService:
             "quality_check": quality_check_node,
             "recovery": recovery_node,
             "report_generator": report_generator_node,
+            "report_validation": report_validation_node,
         }
 
         import time

@@ -5,20 +5,27 @@ from app.graph.research_context import serialize_research_for_llm
 from app.providers import openai_client
 
 ANALYZE_SYSTEM = """You are a business analyst extracting structured insights from research data.
-Return JSON with these keys:
+Extract as much grounded, specific structure as the research supports. Return JSON with these keys:
 - products_services: string summary including B2B/B2C/SaaS/services classification when evidence exists
 - target_customers: string summary of ICP, buyer vs user, and named customers if found
-- business_signals: list of objects with {signal, signal_type, evidence, relevance}
+- named_customers: list of specific customer/company names mentioned as customers (empty list if none)
+- customer_segments: list of objects {segment, description} describing distinct customer groups
+- business_signals: list of objects with {signal, signal_type, evidence, relevance, sentiment}
   signal_type must be one of: Hiring, Funding, Product Launch, Leadership Change, Customer Win,
   Negative Sentiment, Partnership, Expansion, Other
-- risks_challenges: list of objects with {risk, risk_category, severity, evidence}
-  risk_category must be one of: Market, Competitive, Operational, Financial, Reputation, Other
-  severity must be an integer 1-5 (5 = highest)
+  sentiment must be one of: positive, neutral, risk
+- signal_categories: list of objects {category, count} aggregating business_signals by signal_type
+- risks_challenges: list of objects with {risk, risk_category, severity, likelihood, evidence}
+  risk_category must be one of: Market, Competitive, Operational, Financial, Reputation, Regulatory, Technology, Other
+  severity must be an integer 1-5 (5 = highest); likelihood must be an integer 1-5
 - competitive_landscape: string summary
-- key_people: list of notable executives if found
+- competitors: list of competitor company names
+- key_people: list of objects {name, title, note} for notable executives if found
 - financial_signals: string summary if available
+- key_metrics: list of objects {label, value} for any concrete metrics found (revenue, employees, customers, funding)
 
-Use only evidence from the research. Return ONLY valid JSON."""
+Use ONLY evidence from the research; never invent companies, people, or numbers. Leave a field as an
+empty list/string when the research does not support it. Return ONLY valid JSON."""
 
 
 async def analyze_node(state: dict[str, Any]) -> dict[str, Any]:

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from typing import Any
@@ -331,30 +332,33 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
     risks = signals_payload.get("risks") or risks_from_analysis(analysis)
     node_outputs["report_signals_risks"] = {"signals": len(signals), "risks": len(risks)}
 
-    signals_overview_result, tokens, cost = await openai_client.complete_json(
-        BUSINESS_SIGNALS_SYSTEM,
-        f"Company: {state['company_name']}\n"
-        f"Signals seed:\n{json.dumps(signals, indent=2)}\n\n"
-        f"Analysis signals:\n{json.dumps(analysis.get('business_signals', []), indent=2)[:4000]}\n\n"
-        f"Research:\n{research_snippet[:4000]}",
+    # Signals and risks dashboards are independent — build them concurrently.
+    (
+        (signals_overview_result, so_tokens, so_cost),
+        (risks_overview_result, ro_tokens, ro_cost),
+    ) = await asyncio.gather(
+        openai_client.complete_json(
+            BUSINESS_SIGNALS_SYSTEM,
+            f"Company: {state['company_name']}\n"
+            f"Signals seed:\n{json.dumps(signals, indent=2)}\n\n"
+            f"Analysis signals:\n{json.dumps(analysis.get('business_signals', []), indent=2)[:4000]}\n\n"
+            f"Research:\n{research_snippet[:4000]}",
+        ),
+        openai_client.complete_json(
+            RISKS_CHALLENGES_SYSTEM,
+            f"Company: {state['company_name']}\n"
+            f"Risks seed:\n{json.dumps(risks, indent=2)}\n\n"
+            f"Analysis risks:\n{json.dumps(analysis.get('risks_challenges', []), indent=2)[:4000]}\n\n"
+            f"Research:\n{research_snippet[:4000]}",
+        ),
     )
-    total_tokens += tokens
-    total_cost += cost
+    total_tokens += so_tokens + ro_tokens
+    total_cost += so_cost + ro_cost
     business_signals = _parse_json_payload(signals_overview_result)
     node_outputs["report_business_signals"] = {
         "key_signals": len(business_signals.get("key_signals", [])),
         "strength": business_signals.get("overall_strength", {}).get("score"),
     }
-
-    risks_overview_result, tokens, cost = await openai_client.complete_json(
-        RISKS_CHALLENGES_SYSTEM,
-        f"Company: {state['company_name']}\n"
-        f"Risks seed:\n{json.dumps(risks, indent=2)}\n\n"
-        f"Analysis risks:\n{json.dumps(analysis.get('risks_challenges', []), indent=2)[:4000]}\n\n"
-        f"Research:\n{research_snippet[:4000]}",
-    )
-    total_tokens += tokens
-    total_cost += cost
     risks_challenges = _parse_json_payload(risks_overview_result)
     node_outputs["report_risks_challenges"] = {
         "top_risks": len(risks_challenges.get("top_risks", [])),
@@ -446,20 +450,35 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
 
     qc = state.get("node_outputs", {}).get("quality_check", {})
     qc_unknowns = unknowns_from_coverage(qc.get("section_coverage", {}))
+    raw_sources = extract_sources(state)
 
-    unknowns_result, tokens, cost = await openai_client.complete_json(
-        UNKNOWNS_OVERVIEW_SYSTEM,
-        f"Company: {state['company_name']}\n"
-        f"QC section coverage:\n{json.dumps(qc.get('section_coverage', {}), indent=2)}\n\n"
-        f"QC suggested unknowns:\n{json.dumps(qc_unknowns, indent=2)}\n\n"
-        f"Outreach unknowns:\n{json.dumps(outreach_unknowns, indent=2)}\n\n"
-        f"Risks:\n{json.dumps(risks[:6], indent=2)}\n\n"
-        f"Signals:\n{json.dumps(signals[:6], indent=2)}\n\n"
-        f"Discovery gaps:\n{json.dumps(discovery_questions[:4], indent=2)}\n\n"
-        f"Research:\n{research_snippet[:4000]}",
+    # Unknowns and sources dashboards are independent — build them concurrently.
+    (
+        (unknowns_result, un_tokens, un_cost),
+        (sources_result, src_tokens, src_cost),
+    ) = await asyncio.gather(
+        openai_client.complete_json(
+            UNKNOWNS_OVERVIEW_SYSTEM,
+            f"Company: {state['company_name']}\n"
+            f"QC section coverage:\n{json.dumps(qc.get('section_coverage', {}), indent=2)}\n\n"
+            f"QC suggested unknowns:\n{json.dumps(qc_unknowns, indent=2)}\n\n"
+            f"Outreach unknowns:\n{json.dumps(outreach_unknowns, indent=2)}\n\n"
+            f"Risks:\n{json.dumps(risks[:6], indent=2)}\n\n"
+            f"Signals:\n{json.dumps(signals[:6], indent=2)}\n\n"
+            f"Discovery gaps:\n{json.dumps(discovery_questions[:4], indent=2)}\n\n"
+            f"Research:\n{research_snippet[:4000]}",
+        ),
+        openai_client.complete_json(
+            SOURCES_OVERVIEW_SYSTEM,
+            f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
+            f"Raw sources ({len(raw_sources)}):\n{json.dumps(raw_sources, indent=2)}\n\n"
+            f"Research providers:\n{json.dumps([item.get('provider') for item in state.get('raw_research', [])], indent=2)}\n\n"
+            f"QC source count: {qc.get('source_count', len(raw_sources))}\n\n"
+            f"Company news from overview:\n{json.dumps(company_overview.get('recent_news', [])[:5], indent=2)}",
+        ),
     )
-    total_tokens += tokens
-    total_cost += cost
+    total_tokens += un_tokens + src_tokens
+    total_cost += un_cost + src_cost
     unknowns_overview = _parse_json_payload(unknowns_result)
 
     overview_items = unknowns_overview.get("unknown_items") or []
@@ -480,17 +499,6 @@ async def run_report_pipeline(state: dict[str, Any]) -> tuple[dict[str, Any], di
         "categories": len(unknowns_overview.get("categories", [])),
     }
 
-    raw_sources = extract_sources(state)
-    sources_result, tokens, cost = await openai_client.complete_json(
-        SOURCES_OVERVIEW_SYSTEM,
-        f"Company: {state['company_name']}\nWebsite: {state['website']}\n"
-        f"Raw sources ({len(raw_sources)}):\n{json.dumps(raw_sources, indent=2)}\n\n"
-        f"Research providers:\n{json.dumps([item.get('provider') for item in state.get('raw_research', [])], indent=2)}\n\n"
-        f"QC source count: {qc.get('source_count', len(raw_sources))}\n\n"
-        f"Company news from overview:\n{json.dumps(company_overview.get('recent_news', [])[:5], indent=2)}",
-    )
-    total_tokens += tokens
-    total_cost += cost
     sources_overview = _parse_json_payload(sources_result)
 
     overview_source_list = sources_overview.get("sources") or []

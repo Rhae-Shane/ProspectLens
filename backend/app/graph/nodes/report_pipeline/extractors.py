@@ -14,9 +14,14 @@ def _safe_str(value: Any, default: str = "Not available") -> str:
 
 def _first_match(text: str, patterns: list[str]) -> str | None:
     for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+        try:
+            match = re.search(pattern, text, re.IGNORECASE)
+        except re.error:
+            continue
         if match:
-            return match.group(1).strip()
+            # Some patterns have no capturing group; fall back to the full match.
+            value = match.group(1) if match.groups() else match.group(0)
+            return value.strip()
     return None
 
 

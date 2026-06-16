@@ -11,8 +11,13 @@ class ResearchState(TypedDict, total=False):
     business_signals: dict[str, Any]
     quality_score: float
     quality_issues: list[str]
+    section_coverage: dict[str, float]
+    source_count: int
+    qc_unknowns: list[str]
+    qc_recovery_queries: list[str]
     retry_count: int
     report: dict[str, Any]
+    report_validation: dict[str, Any]
     node_outputs: dict[str, Any]
     errors: list[dict[str, Any]]
     status: str
@@ -36,8 +41,13 @@ def initial_state(
         business_signals={},
         quality_score=0.0,
         quality_issues=[],
+        section_coverage={},
+        source_count=0,
+        qc_unknowns=[],
+        qc_recovery_queries=[],
         retry_count=0,
         report={},
+        report_validation={},
         node_outputs={},
         errors=[],
         status="running",
