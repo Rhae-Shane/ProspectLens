@@ -13,10 +13,19 @@ from app.logging_config import get_logger
 from app.models import ResearchSession, WorkflowEvent, WorkflowStatus
 from app.observability.events import event_emitter
 from app.services.session_service import SessionService
+from app.services.report_rag import report_rag
 
 logger = get_logger(__name__)
 
-NODE_ORDER = ["planner", "research", "analyze", "quality_check", "recovery", "report_generator"]
+NODE_ORDER = [
+    "planner",
+    "research",
+    "analyze",
+    "quality_check",
+    "recovery",
+    "report_generator",
+    "report_validation",
+]
 
 _running_tasks: dict[str, asyncio.Task] = {}
 
@@ -80,6 +89,9 @@ class WorkflowService:
             current_state = await self._run_node_with_events(
                 session_id, "report_generator", current_state
             )
+            current_state = await self._run_node_with_events(
+                session_id, "report_validation", current_state
+            )
             final_state = current_state
 
             async with async_session_factory() as db:
@@ -90,6 +102,19 @@ class WorkflowService:
                         await SessionService.save_report(db, session_id, report)
                         context = self._build_report_context(report)
                         await context_cache.set_report_context(str(session_id), context)
+                        try:
+                            chunk_count = await report_rag.index_report(str(session_id), report, db)
+                            logger.info(
+                                "report_rag_indexed",
+                                session_id=str(session_id),
+                                chunks=chunk_count,
+                            )
+                        except Exception as exc:
+                            logger.warning(
+                                "report_rag_index_failed",
+                                session_id=str(session_id),
+                                error=str(exc),
+                            )
 
                     session.status = WorkflowStatus.COMPLETED
                     session.workflow_status = "completed"
@@ -132,6 +157,7 @@ class WorkflowService:
             quality_check_node,
             recovery_node,
             report_generator_node,
+            report_validation_node,
             research_node,
         )
 
@@ -142,6 +168,7 @@ class WorkflowService:
             "quality_check": quality_check_node,
             "recovery": recovery_node,
             "report_generator": report_generator_node,
+            "report_validation": report_validation_node,
         }
 
         import time

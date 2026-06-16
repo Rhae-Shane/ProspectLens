@@ -57,6 +57,10 @@ type ReportListProps = {
   isLoading?: boolean
   searchQuery: string
   onSearchChange: (value: string) => void
+  title?: string
+  subtitle?: string
+  searchPlaceholder?: string
+  emptyMessage?: string
 }
 
 export function ReportList({
@@ -66,6 +70,10 @@ export function ReportList({
   isLoading,
   searchQuery,
   onSearchChange,
+  title = 'Research Reports',
+  subtitle = 'Sorted by: Newest first · Completed briefings',
+  searchPlaceholder = 'Search reports...',
+  emptyMessage = 'No completed reports yet.',
 }: ReportListProps) {
   const filteredReports = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -84,8 +92,8 @@ export function ReportList({
   return (
     <Card className="flex h-full min-h-0 w-full flex-col rounded-none ring-0">
       <CardHeader className="shrink-0 space-y-1 border-b py-4">
-        <CardTitle className="font-normal text-lg">Research Reports</CardTitle>
-        <p className="text-muted-foreground text-xs">Sorted by: Newest first · Completed briefings</p>
+        <CardTitle className="font-normal text-lg">{title}</CardTitle>
+        <p className="text-muted-foreground text-xs">{subtitle}</p>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden px-0 pt-0">
@@ -93,7 +101,7 @@ export function ReportList({
           <InputGroup>
             <InputGroupInput
               aria-label="Search reports"
-              placeholder="Search reports..."
+              placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
             />
@@ -110,7 +118,7 @@ export function ReportList({
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-            <p className="text-muted-foreground text-sm">No completed reports yet.</p>
+            <p className="text-muted-foreground text-sm">{emptyMessage}</p>
             <Button asChild size="sm" variant="outline">
               <Link to="/sessions/new">Start research</Link>
             </Button>

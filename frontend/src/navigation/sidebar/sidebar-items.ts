@@ -1,31 +1,16 @@
 import {
-  Banknote,
-  Calendar,
-  ChartBar,
   FileText,
-  Fingerprint,
-  Forklift,
-  Gauge,
-  GraduationCap,
   Home,
-  Kanban,
+  KeyRound,
   LayoutDashboard,
-  ListTodo,
-  Lock,
-  type LucideIcon,
-  Mail,
   MessageSquare,
   PlusCircle,
-  ReceiptText,
-  ShoppingBag,
-  SquareArrowUpRight,
-  Users,
 } from "lucide-react";
 
 export interface NavSubItem {
   title: string;
   url: string;
-  icon?: LucideIcon;
+  icon?: typeof Home;
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
@@ -34,7 +19,7 @@ export interface NavSubItem {
 export interface NavMainItem {
   title: string;
   url: string;
-  icon?: LucideIcon;
+  icon?: typeof Home;
   subItems?: NavSubItem[];
   comingSoon?: boolean;
   newTab?: boolean;
@@ -72,133 +57,21 @@ export const sidebarItems: NavGroup[] = [
         url: "/reports",
         icon: FileText,
       },
+      {
+        title: "Follow-up Chat",
+        url: "/follow-up-chat",
+        icon: MessageSquare,
+      },
     ],
   },
   {
     id: 1,
-    label: "Dashboards",
+    label: "Integrations",
     items: [
       {
-        title: "Default",
-        url: "/dashboard/default",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "CRM",
-        url: "/dashboard/crm",
-        icon: ChartBar,
-      },
-      {
-        title: "Finance",
-        url: "/dashboard/finance",
-        icon: Banknote,
-      },
-      {
-        title: "Analytics",
-        url: "/dashboard/analytics",
-        icon: Gauge,
-      },
-      {
-        title: "Productivity",
-        url: "/dashboard/productivity",
-        icon: ListTodo,
-      },
-      {
-        title: "E-commerce",
-        url: "/dashboard/ecommerce",
-        icon: ShoppingBag,
-      },
-      {
-        title: "Academy",
-        url: "/dashboard/academy",
-        icon: GraduationCap,
-        isNew: true,
-      },
-      {
-        title: "Logistics",
-        url: "/dashboard/logistics",
-        icon: Forklift,
-      },
-    ],
-  },
-  {
-    id: 2,
-    label: "Pages",
-    items: [
-      {
-        title: "Email",
-        url: "/dashboard/mail",
-        icon: Mail,
-      },
-      {
-        title: "Chat",
-        url: "/dashboard/chat",
-        icon: MessageSquare,
-      },
-      {
-        title: "Calendar",
-        url: "/dashboard/coming-soon",
-        icon: Calendar,
-        comingSoon: true,
-      },
-      {
-        title: "Kanban",
-        url: "/dashboard/kanban",
-        icon: Kanban,
-      },
-      {
-        title: "Invoice",
-        url: "/dashboard/invoice",
-        icon: ReceiptText,
-      },
-      {
-        title: "Users",
-        url: "/dashboard/users",
-        icon: Users,
-      },
-      {
-        title: "Roles",
-        url: "/dashboard/roles",
-        icon: Lock,
-      },
-      {
-        title: "Authentication",
-        url: "/auth",
-        icon: Fingerprint,
-        subItems: [
-          { title: "Login v1", url: "/auth/v1/login", newTab: true },
-          { title: "Login v2", url: "/auth/v2/login", newTab: true },
-          { title: "Register v1", url: "/auth/v1/register", newTab: true },
-          { title: "Register v2", url: "/auth/v2/register", newTab: true },
-        ],
-      },
-    ],
-  },
-  {
-    id: 3,
-    label: "Legacy",
-    items: [
-      {
-        title: "Dashboards",
-        url: "/dashboard/default-v1",
-        subItems: [
-          { title: "Default V1", url: "/dashboard/default-v1" },
-          { title: "CRM V1", url: "/dashboard/crm-v1" },
-          { title: "Finance V1", url: "/dashboard/finance-v1" },
-          { title: "Analytics V1", url: "/dashboard/analytics-v1" },
-        ],
-      },
-    ],
-  },
-  {
-    id: 4,
-    label: "Misc",
-    items: [
-      {
-        title: "Others",
-        url: "/dashboard/coming-soon",
-        icon: SquareArrowUpRight,
-        comingSoon: true,
+        title: "API Usage",
+        url: "/api-usage",
+        icon: KeyRound,
       },
     ],
   },

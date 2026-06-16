@@ -4,6 +4,7 @@ from typing import Any
 from app.cache.context_cache import context_cache
 from app.config import get_settings
 from app.graph.intel_queries import build_targeted_intel_queries
+from app.graph.qc_utils import sanitize_research
 from app.graph.search_config import parse_search_config
 from app.providers import apollo_client, firecrawl_client, newsapi_client, perplexity_client, producthunt_client, tavily_client
 
@@ -15,27 +16,39 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
     company = state["company_name"]
     website = state["website"]
     objective = state["objective"]
+    retry_count = state.get("retry_count", 0)
+    is_retry = retry_count > 0
 
-    cached = await context_cache.get_research(company, website, objective)
-    if cached and state.get("retry_count", 0) == 0:
-        node_outputs = dict(state.get("node_outputs", {}))
-        node_outputs["research"] = {"cached": True, "count": len(cached)}
-        return {
-            "raw_research": cached,
-            "node_outputs": node_outputs,
-        }
+    # Only consult the cache on the first pass. Retries must run fresh,
+    # targeted gap queries rather than returning the original cached payload.
+    if not is_retry:
+        cached = await context_cache.get_research(company, website, objective)
+        if cached:
+            node_outputs = dict(state.get("node_outputs", {}))
+            node_outputs["research"] = {"cached": True, "count": len(cached)}
+            return {
+                "raw_research": cached,
+                "node_outputs": node_outputs,
+            }
 
     plan = state.get("research_plan", {})
     search_config = parse_search_config(plan)
-    queries = plan.get("queries", [])
-    if not queries:
-        queries = [
-            f"{company} company overview and business model",
-            f"{company} products and services",
-            f"{company} target customers and market",
-            f"{company} recent news and business signals",
-            f"{company} challenges and risks",
-        ]
+
+    if is_retry:
+        # Cheap, additive retry: only run the focused recovery queries.
+        queries = list(plan.get("recovery_queries") or [])
+        if not queries:
+            queries = [f"{company} {objective} additional company details"]
+    else:
+        queries = plan.get("queries", [])
+        if not queries:
+            queries = [
+                f"{company} company overview and business model",
+                f"{company} products and services",
+                f"{company} target customers and market",
+                f"{company} recent news and business signals",
+                f"{company} challenges and risks",
+            ]
 
     context = RESEARCH_CONTEXT.format(company=company, website=website, objective=objective)
 
@@ -268,57 +281,71 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
                 )
             ]
 
-    (
-        query_results,
-        news_results,
-        firecrawl_results,
-        producthunt_results,
-        apollo_results,
-        intel_results,
-    ) = await asyncio.gather(
-        asyncio.gather(*[run_query(q) for q in queries]),
-        run_news(),
-        run_firecrawl(),
-        run_producthunt(),
-        run_apollo(),
-        run_targeted_intel(),
-    )
+    if is_retry:
+        # Skip the expensive provider fan-out on retries; the heavy sources
+        # (news, firecrawl, apollo, producthunt, intel) already ran on pass 1.
+        query_results = await asyncio.gather(*[run_query(q) for q in queries])
+        news_results: list[tuple[dict[str, Any], int, float]] = []
+        firecrawl_results: list[tuple[dict[str, Any], int, float]] = []
+        producthunt_results: list[tuple[dict[str, Any], int, float]] = []
+        apollo_results: list[tuple[dict[str, Any], int, float]] = []
+        intel_results: list[tuple[dict[str, Any], int, float]] = []
+    else:
+        (
+            query_results,
+            news_results,
+            firecrawl_results,
+            producthunt_results,
+            apollo_results,
+            intel_results,
+        ) = await asyncio.gather(
+            asyncio.gather(*[run_query(q) for q in queries]),
+            run_news(),
+            run_firecrawl(),
+            run_producthunt(),
+            run_apollo(),
+            run_targeted_intel(),
+        )
 
-    raw_research: list[dict[str, Any]] = []
+    new_items: list[dict[str, Any]] = []
     total_tokens = 0
     total_cost = 0.0
     for batch in query_results:
         for result, tokens, cost in batch:
-            raw_research.append(result)
+            new_items.append(result)
             total_tokens += tokens
             total_cost += cost
 
     for result, tokens, cost in news_results:
-        raw_research.append(result)
+        new_items.append(result)
         total_tokens += tokens
         total_cost += cost
 
     for result, tokens, cost in firecrawl_results:
-        raw_research.append(result)
+        new_items.append(result)
         total_tokens += tokens
         total_cost += cost
 
     for result, tokens, cost in producthunt_results:
-        raw_research.append(result)
+        new_items.append(result)
         total_tokens += tokens
         total_cost += cost
 
     for result, tokens, cost in apollo_results:
-        raw_research.append(result)
+        new_items.append(result)
         total_tokens += tokens
         total_cost += cost
 
     for result, tokens, cost in intel_results:
-        raw_research.append(result)
+        new_items.append(result)
         total_tokens += tokens
         total_cost += cost
 
-    if state.get("retry_count", 0) == 0:
+    # On retries, append fresh gap-filling results to what we already have.
+    combined = (list(state.get("raw_research", [])) + new_items) if is_retry else new_items
+    raw_research, sanitize_stats = sanitize_research(combined)
+
+    if not is_retry:
         await context_cache.set_research(company, website, objective, raw_research)
 
     providers_used = []
@@ -341,11 +368,13 @@ async def research_node(state: dict[str, Any]) -> dict[str, Any]:
     node_outputs = dict(state.get("node_outputs", {}))
     node_outputs["research"] = {
         "queries_run": len(queries),
-        "intel_queries_run": len(build_targeted_intel_queries(company, search_config)),
+        "intel_queries_run": 0 if is_retry else len(build_targeted_intel_queries(company, search_config)),
         "results_count": len(raw_research),
-        "providers": providers_used,
+        "providers": [] if is_retry else providers_used,
         "search_config": search_config,
         "cached": False,
+        "is_retry": is_retry,
+        "sanitize": sanitize_stats,
     }
 
     return {

@@ -6,6 +6,7 @@ from app.graph.nodes import (
     quality_check_node,
     recovery_node,
     report_generator_node,
+    report_validation_node,
     research_node,
     route_after_quality,
 )
@@ -21,6 +22,7 @@ def build_graph() -> StateGraph:
     graph.add_node("quality_check", quality_check_node)
     graph.add_node("recovery", recovery_node)
     graph.add_node("report_generator", report_generator_node)
+    graph.add_node("report_validation", report_validation_node)
 
     graph.set_entry_point("planner")
     graph.add_edge("planner", "research")
@@ -35,7 +37,8 @@ def build_graph() -> StateGraph:
         },
     )
     graph.add_edge("recovery", "research")
-    graph.add_edge("report_generator", END)
+    graph.add_edge("report_generator", "report_validation")
+    graph.add_edge("report_validation", END)
 
     return graph
 

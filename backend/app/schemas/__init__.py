@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
 def _format_outreach_dict(data: dict[str, Any]) -> str:
@@ -68,6 +68,8 @@ def normalize_report_content(content: dict[str, Any]) -> dict[str, Any]:
             normalized[key] = [value] if value else []
         else:
             normalized[key] = [str(value)]
+    if "structured" in content and isinstance(content["structured"], dict):
+        normalized["structured"] = content["structured"]
     return normalized
 
 
@@ -87,6 +89,7 @@ class ReportContent(BaseModel):
     outreach_strategy: str
     unknowns: list[str]
     sources: list[SourceItem]
+    structured: Optional[dict[str, Any]] = None
 
 
 class SessionCreate(BaseModel):
@@ -121,6 +124,7 @@ class SessionListResponse(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     message: str = Field(..., min_length=1)
+    tools: list[str] | None = None
 
 
 class ChatMessageResponse(BaseModel):
@@ -128,9 +132,24 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     tokens: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_metadata(cls, data: Any) -> Any:
+        if hasattr(data, "metadata_"):
+            return {
+                "id": data.id,
+                "role": data.role,
+                "content": data.content,
+                "tokens": data.tokens,
+                "metadata": data.metadata_ or {},
+                "created_at": data.created_at,
+            }
+        return data
 
 
 class WorkflowEventResponse(BaseModel):

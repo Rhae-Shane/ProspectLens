@@ -5,15 +5,15 @@ import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
-function Avatar({
-  className,
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Root> & {
-  size?: "default" | "sm" | "lg"
-}) {
+const Avatar = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
+    size?: "default" | "sm" | "lg"
+  }
+>(({ className, size = "default", ...props }, ref) => {
   return (
     <AvatarPrimitive.Root
+      ref={ref}
       data-slot="avatar"
       data-size={size}
       className={cn(
@@ -23,7 +23,8 @@ function Avatar({
       {...props}
     />
   )
-}
+})
+Avatar.displayName = AvatarPrimitive.Root.displayName
 
 function AvatarImage({
   className,

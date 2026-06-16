@@ -14,6 +14,7 @@ export interface ReportContent {
   outreach_strategy: string
   unknowns: string[]
   sources: SourceItem[]
+  structured?: import('./structured-report').StructuredReport
 }
 
 export interface Session {
@@ -49,11 +50,38 @@ export interface WorkflowEvent {
   created_at: string
 }
 
+export interface ChatTool {
+  id: string
+  label: string
+  description: string
+  icon: string
+}
+
+export interface ChatToolUsage {
+  tool: string
+  query?: string
+  provider?: string
+  sources?: SourceItem[]
+}
+
+export interface RagSectionRef {
+  section?: string
+  title?: string
+  score?: number
+}
+
+export interface ChatMessageMetadata {
+  tools?: string[]
+  tools_used?: ChatToolUsage[]
+  rag_sections?: RagSectionRef[]
+}
+
 export interface ChatMessage {
   id: string
   role: string
   content: string
   tokens: number
+  metadata?: ChatMessageMetadata
   created_at: string
 }
 
