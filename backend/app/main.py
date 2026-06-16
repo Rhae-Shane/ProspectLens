@@ -10,9 +10,11 @@ from app.api.deps import get_current_user
 from app.cache.context_cache import context_cache
 from app.config import get_settings
 from app.database import Base, async_session_factory, engine
+from app.graph.checkpointer import postgres_checkpointer
 from app.logging_config import configure_logging, get_logger
 from app.schemas import HealthResponse
 from app.services.auth_service import ensure_seed_users
+from app.services.workflow_service import workflow_service
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -37,8 +39,11 @@ async def lifespan(app: FastAPI):
         await ensure_seed_users(db)
         await db.commit()
 
-    logger.info("application_started")
-    yield
+    async with postgres_checkpointer() as checkpointer:
+        workflow_service.set_checkpointer(checkpointer)
+        logger.info("application_started")
+        yield
+
     await context_cache.disconnect()
     await engine.dispose()
     logger.info("application_stopped")

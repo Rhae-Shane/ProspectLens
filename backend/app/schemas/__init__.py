@@ -171,6 +171,14 @@ class WorkflowRunResponse(BaseModel):
     message: str
 
 
+class WorkflowCheckpointResponse(BaseModel):
+    session_id: UUID
+    has_checkpoint: bool
+    can_resume: bool
+    next_nodes: list[str] = []
+    checkpoint_id: str | None = None
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str = "0.1.0"

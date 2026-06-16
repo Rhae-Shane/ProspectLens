@@ -52,6 +52,16 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def database_url_sync(self) -> str:
+        """Psycopg connection string for LangGraph Postgres checkpointer."""
+        url = self.database_url
+        if url.startswith("postgresql+asyncpg://"):
+            return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        if url.startswith("postgres+asyncpg://"):
+            return url.replace("postgres+asyncpg://", "postgresql://", 1)
+        return url
+
+    @property
     def auth_user_seeds(self) -> list[dict[str, str]]:
         seeds: list[dict[str, str]] = []
         if self.auth_user_1_email.strip() and self.auth_user_1_password:

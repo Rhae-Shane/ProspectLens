@@ -5,6 +5,7 @@ import type {
   CreateSessionPayload,
   Session,
   SessionListResponse,
+  WorkflowCheckpoint,
   WorkflowEvent,
 } from '@/types/report'
 
@@ -67,6 +68,15 @@ export const api = {
       `/api/v1/sessions/${id}/retry`,
       { method: 'POST' }
     ),
+
+  resumeWorkflow: (id: string) =>
+    request<{ session_id: string; status: string; message: string }>(
+      `/api/v1/sessions/${id}/resume`,
+      { method: 'POST' }
+    ),
+
+  getWorkflowCheckpoint: (id: string) =>
+    request<WorkflowCheckpoint>(`/api/v1/sessions/${id}/workflow/state`),
 
   getEvents: (id: string) => request<WorkflowEvent[]>(`/api/v1/sessions/${id}/events`),
 

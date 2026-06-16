@@ -38,8 +38,8 @@ flowchart LR
 
 1. User creates a research session (company, website, objective) via the frontend.
 2. Frontend calls `POST /api/v1/sessions/{id}/run`.
-3. Backend runs the LangGraph workflow as an async background task.
-4. Each node executes sequentially (with a conditional retry loop after quality check).
+3. Backend runs the compiled LangGraph via `graph.astream()` as an async background task (`workflow_service.py`).
+4. Each node executes through the graph (with conditional retry loop after quality check); observability wrappers emit SSE/DB events per node.
 5. Node events persist to `workflow_events` and stream to the UI via SSE.
 6. The final structured report saves to `reports.content` (JSONB).
 7. Report chunks are embedded and indexed into `report_rag_chunks` (pgvector).
@@ -72,6 +72,44 @@ After **Quality Check**:
 - Otherwise → **Recovery** → **Research** (retry loop)
 
 After **Report Generator** → **Report Validation** → END.
+
+### Checkpointing & Resume
+
+The compiled graph uses `AsyncPostgresSaver` (`langgraph-checkpoint-postgres`). Each session maps to a LangGraph `thread_id` equal to the session UUID.
+
+| Action | Endpoint | Behavior |
+|--------|----------|----------|
+| Fresh run | `POST /sessions/{id}/run` | Clears checkpoint thread, streams from planner |
+| Full restart | `POST /sessions/{id}/retry` | Same as fresh run after failure |
+| Resume | `POST /sessions/{id}/resume` | `astream(None, config)` from last checkpoint |
+| Checkpoint status | `GET /sessions/{id}/workflow/state` | `next_nodes`, `can_resume` |
+
+On mid-run failure the checkpoint is preserved so resume can continue. Post-graph finalize (save report, RAG index) runs on successful completion or when the graph is already at END but finalize previously failed.
+
+#### Failure & resume behavior
+
+| Scenario | Session status | Checkpoint | User action |
+|----------|----------------|------------|-------------|
+| Node throws mid-run | `failed` | Preserved (`can_resume: true`) | **Resume workflow** or **Restart from scratch** |
+| Backend killed mid-run | `running` or `failed` | Preserved | **Resume workflow** (UI on Sessions detail + Follow-up Chat N/A until complete) |
+| Graph finished, finalize failed (DB/RAG) | `failed` | At END (`can_resume: false`) | **Resume** runs finalize only (report save + RAG index) |
+| Successful completion | `completed` | Remains at END | N/A |
+| Fresh run or retry | `running` | Thread cleared first | Full pipeline from planner |
+
+**QC recovery loop** (in-graph, not checkpoint resume): low quality score routes to Recovery → Research again (up to `retry_count >= 2`), then proceeds to report generation.
+
+#### How to demo resume (manual QA)
+
+1. Start a workflow: `POST /api/v1/sessions/{id}/run` or UI **Run**.
+2. While status is `running`, stop the backend (`docker stop zylabs-backend-1`) or wait for a provider timeout.
+3. Check checkpoint: `GET /api/v1/sessions/{id}/workflow/state` → `has_checkpoint: true`, `can_resume: true`, `next_nodes` lists remaining graph nodes.
+4. Restart backend, then either:
+   - **API:** `POST /api/v1/sessions/{id}/resume`
+   - **UI:** open session → **Resume workflow** (failed/stuck sessions on Details or Workflow tab)
+5. Confirm SSE shows `workflow` event `resumed` and only **remaining** nodes execute (planner/research not re-run).
+6. For a full restart: **Restart from scratch** / `POST /retry` clears the checkpoint thread.
+
+Automated checkpoint test: `backend/tests/test_checkpoint_resume.py` (MemorySaver). E2E script: `backend/scripts/e2e_microsoft_test.py` logs `can_resume` during polling.
 
 ### Research Providers
 
@@ -207,6 +245,8 @@ Falls back to in-process dict when Redis is unavailable.
 |------|--------|-------|
 | Sessions | `/api/v1/sessions` | CRUD, run workflow |
 | Workflow | `/api/v1/sessions/{id}/events` | SSE event stream |
+| Workflow | `/api/v1/sessions/{id}/resume` | Resume from Postgres checkpoint |
+| Workflow | `/api/v1/sessions/{id}/workflow/state` | Checkpoint summary |
 | Chat | `/api/v1/sessions/{id}/chat` | Follow-up messages |
 | Chat tools | `/api/v1/chat/tools` | List available tools |
 | Usage | `/api/v1/usage` | Token/cost summaries |

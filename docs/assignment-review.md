@@ -2,7 +2,7 @@
 
 Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph Research Copilot).
 
-**Overall posture:** The project **meets or exceeds** most functional requirements. Strongest areas are frontend UX, AI/report pipeline, and documentation. The main gap for the **LangGraph (25%)** weight is that the graph is **defined** but **manually executed** — not invoked via `graph.ainvoke()` / checkpointing.
+**Overall posture:** The project **meets or exceeds** the assignment requirements. Strongest areas are LangGraph execution (native `astream` + Postgres checkpoint resume), AI/report pipeline, frontend UX, and documentation. Remaining gaps: demo video/hosted deploy, CI, user-scoped sessions.
 
 ---
 
@@ -12,7 +12,7 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 |-------------|--------|--------|
 | React frontend | ✅ | `frontend/src/` — Vite, TanStack Query, Tailwind |
 | Python + FastAPI backend | ✅ | `backend/app/main.py`, REST under `/api/v1` |
-| LangGraph (mandatory) | ⚠️ | `graph.py` — 7 nodes, conditional routing; execution in `workflow_service.py` |
+| LangGraph (mandatory) | ✅ | `graph.py` — 7 nodes, `astream`, Postgres checkpointer, `POST /resume` |
 | Create research session | ✅ | `POST /sessions`, `NewSessionPage.tsx` |
 | Workflow progress UI | ✅ | SSE `useWorkflowEvents.ts`, `WorkflowProgress.tsx`, trace panel |
 | Structured report (9+ sections) | ✅ | **10 sections** — `REPORT_NAV_ITEMS` in `structured-report.ts` |
@@ -54,7 +54,6 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 **Gaps**
 - No frontend unit/E2E tests
 - Workflow stepper shows 5 steps (hides Recovery + Report Validation)
-- Unused template pages under `pages/dashboard/` (not routed)
 
 ### 2. Backend Engineering (20%) — **Strong (~16/20)**
 
@@ -71,21 +70,23 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 - No rate limiting; workflows run in-process (`asyncio.create_task`)
 - Production Docker image omits Alembic run step
 
-### 3. LangGraph Design (25%) — **Partial (~17/25)** ← highest-impact area
+### 3. LangGraph Design (25%) — **Strong (~22/25)**
 
 **Met**
 - 7 nodes: Planner → Research → Analyze → QC → (Recovery) → Report → Validation
 - Shared `ResearchState` TypedDict
 - Conditional routing after QC (`quality_score >= 0.75` or `retry_count >= 2`)
 - Recovery loop with gap-targeted queries
+- **Native `graph.astream(stream_mode="updates")`** in `workflow_service.py`
+- **Postgres checkpointer** + `POST /resume` + UI Resume button
 - Intermediate outputs in `node_outputs` + `workflow_events` table
-- Backend tests: `tests/test_graph.py`
+- Tests: `test_graph.py`, `test_graph_execution.py`, `test_checkpoint_resume.py`
 
 **Gaps**
-- **`compile_graph()` never invoked** — `workflow_service.py` manually calls nodes
-- No Postgres checkpointer / crash resume
+- Resume/failure flow documented in `docs/workflow-resume-demo.md` — record in demo video
 - SSE emits top-level node events only (not report-pipeline sub-steps)
-- `ResearchState.errors` unused; failures are all-or-nothing per node
+
+**Demo:** See [workflow-resume-demo.md](workflow-resume-demo.md)
 
 ### 4. AI Engineering (15%) — **Strong (~13/15)**
 
@@ -152,7 +153,7 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 
 | # | Improvement | Rubric impact | Effort |
 |---|-------------|---------------|--------|
-| 1 | **Wire `graph.astream()` / `ainvoke()`** in `workflow_service.py`; map LangGraph events → SSE | LangGraph +25% area | M |
+| 1 | ~~Wire `graph.astream()`~~ | Done | — |
 | 2 | **Record demo video** — create session → progress → 10-section report → chat with RAG | Submission | S |
 | 3 | **User-scoped sessions** — `user_id` on `research_sessions`, filter list/get APIs | Backend + Product | M |
 | 4 | **GitHub Actions** — `pytest`, `npm run build` | Production | S |
@@ -162,13 +163,13 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 
 | # | Improvement | Rubric impact | Effort |
 |---|-------------|---------------|--------|
-| 6 | **LangGraph Postgres checkpointer** — resume after crash | LangGraph | L |
+| 6 | ~~LangGraph Postgres checkpointer~~ | Done — see [workflow-resume-demo.md](workflow-resume-demo.md) | — |
 | 7 | **OpenAI structured outputs** for planner/analyze/report JSON | AI Engineering | M |
 | 8 | **Confidence badges** on snapshot fields (Apollo vs inferred) | Product + AI | M |
 | 9 | **Workflow UI** — show Recovery + Validation steps; optional report sub-progress | Frontend | S |
 | 10 | **Alembic in Docker** — `alembic upgrade head` on startup; users migration | Production | S |
 | 11 | **Eval harness** — 3 fixture companies, assert section coverage | AI Engineering | M |
-| 12 | **Delete** unused `pages/dashboard/` template residue | Frontend hygiene | S |
+| 12 | ~~Delete unused `pages/dashboard/`~~ | Done | — |
 
 ### P2 — Post-assignment / production (2+ weeks)
 
@@ -196,9 +197,9 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 | Conditional routing | ✅ A | `route_after_quality` in `quality.py` |
 | Intermediate outputs | ⚠️ B | Rich `node_outputs`; SSE only for top-level nodes |
 | Failure handling | ⚠️ B | try/catch → `FAILED` status; provider failures sanitized in research |
-| Recoverability | ⚠️ C+ | QC retry loop yes; no checkpoint; manual retry = full restart |
+| Recoverability | ✅ A- | QC retry loop + Postgres checkpoint + `POST /resume` + UI |
 
-**To reach A on LangGraph:** Execute the compiled graph natively + add checkpointer + stream graph events to SSE.
+**Resume demo:** [workflow-resume-demo.md](workflow-resume-demo.md)
 
 ---
 
@@ -224,10 +225,10 @@ Assessment against the **Zylabs Full Stack AI Engineer Assignment** (LangGraph R
 4. Walk 2–3 report dashboards (Company Overview firmographics, Target Customers, Sources)
 5. View Full Report + Export PDF
 6. Follow-up chat: enable **Search Report**, ask a question grounded in briefing
-7. Mention: 7-node LangGraph, hybrid QC, multi-provider research, pgvector RAG
+7. Mention: 7-node LangGraph, hybrid QC, checkpoint resume — see [workflow-resume-demo.md](workflow-resume-demo.md)
 
 ---
 
 ## One-Line Pitch for Reviewers
 
-> ProspectLens is a production-shaped sales research copilot with a 7-node LangGraph workflow (planner → multi-provider research → analysis → hybrid QC → conditional recovery → multi-call report pipeline → validation), 10 dashboard report sections, pgvector RAG chat with tools, and full persistence — with the main technical debt being manual graph execution instead of native LangGraph invoke/checkpointing.
+> ProspectLens is a production-shaped sales research copilot with a 7-node LangGraph workflow (planner → multi-provider research → analysis → hybrid QC → conditional recovery → multi-call report pipeline → validation), native `astream` execution, Postgres checkpoint resume, 10 dashboard report sections, pgvector RAG chat with tools, and full persistence.

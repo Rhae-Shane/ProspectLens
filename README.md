@@ -126,6 +126,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for platform-specific steps.
 - [Assignment Rubric Review](docs/assignment-review.md)
 - [LangGraph Native Execution Plan](docs/langgraph-native-execution-plan.md)
 - [Architecture](docs/architecture.md) — system design, workflow, RAG, report pipeline
+- [Workflow Resume Demo](docs/workflow-resume-demo.md) — failure & checkpoint resume walkthrough
 - [Engineering Decisions](docs/engineering-decisions.md) — tradeoffs and technical debt
 - [Product Improvements](docs/product-improvements.md) — roadmap and product notes
 - [Deployment](docs/DEPLOYMENT.md) — Docker, Railway, Render, Vercel
@@ -136,6 +137,16 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for platform-specific steps.
 cd backend
 pytest tests/ -v
 ```
+
+Includes graph routing, native `astream` execution, and checkpoint resume (`test_checkpoint_resume.py`).
+
+### Demo: workflow failure & resume
+
+See [Architecture — Failure & resume](docs/architecture.md#failure--resume-behavior) for the full walkthrough. Short version:
+
+1. Run a session workflow → kill backend mid-run → `GET /workflow/state` shows `can_resume: true`
+2. Restart backend → **Resume workflow** in the session UI (or `POST /sessions/{id}/resume`)
+3. Workflow continues from the last completed node without re-running planner/research
 
 ## Re-running Research
 

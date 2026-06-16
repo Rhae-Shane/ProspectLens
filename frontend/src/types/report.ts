@@ -50,6 +50,14 @@ export interface WorkflowEvent {
   created_at: string
 }
 
+export interface WorkflowCheckpoint {
+  session_id: string
+  has_checkpoint: boolean
+  can_resume: boolean
+  next_nodes: string[]
+  checkpoint_id?: string | null
+}
+
 export interface ChatTool {
   id: string
   label: string

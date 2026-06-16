@@ -2,7 +2,10 @@ import { SessionsWorkspace } from '@/pages/sessions/_components/sessions-workspa
 
 export function SessionsPage() {
   return (
-    <div data-content-padding="false" className="flex min-h-0 w-full max-w-none flex-1 flex-col">
+    <div
+      data-content-padding="false"
+      className="flex h-full min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden"
+    >
       <SessionsWorkspace />
     </div>
   )

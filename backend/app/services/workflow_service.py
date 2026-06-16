@@ -1,5 +1,5 @@
 import asyncio
-import json
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,36 +10,58 @@ from app.database import async_session_factory
 from app.graph.graph import compile_graph
 from app.graph.state import initial_state
 from app.logging_config import get_logger
-from app.models import ResearchSession, WorkflowEvent, WorkflowStatus
+from app.models import WorkflowEvent, WorkflowStatus
 from app.observability.events import event_emitter
-from app.services.session_service import SessionService
 from app.services.report_rag import report_rag
+from app.services.session_service import SessionService
 
 logger = get_logger(__name__)
 
-NODE_ORDER = [
-    "planner",
-    "research",
-    "analyze",
-    "quality_check",
-    "recovery",
-    "report_generator",
-    "report_validation",
-]
-
 _running_tasks: dict[str, asyncio.Task] = {}
+RunMode = Literal["fresh", "resume"]
 
 
 class WorkflowService:
     def __init__(self) -> None:
         self._graph = None
+        self._checkpointer = None
+
+    def set_checkpointer(self, checkpointer) -> None:
+        self._checkpointer = checkpointer
+        self._graph = None
 
     def get_graph(self):
         if self._graph is None:
-            self._graph = compile_graph()
+            self._graph = compile_graph(self._checkpointer)
         return self._graph
 
-    async def run_workflow(self, session_id: UUID) -> None:
+    @staticmethod
+    def _graph_config(session_id: UUID) -> dict:
+        return {"configurable": {"thread_id": str(session_id)}}
+
+    async def clear_checkpoint(self, session_id: UUID) -> None:
+        if self._checkpointer is None:
+            return
+        await self._checkpointer.adelete_thread(str(session_id))
+
+    async def get_checkpoint_status(self, session_id: UUID) -> dict[str, Any] | None:
+        if self._checkpointer is None:
+            return None
+
+        graph = self.get_graph()
+        config = self._graph_config(session_id)
+        snapshot = await graph.aget_state(config)
+        if not snapshot or not snapshot.values:
+            return None
+
+        return {
+            "has_checkpoint": True,
+            "next_nodes": list(snapshot.next or ()),
+            "can_resume": bool(snapshot.next),
+            "checkpoint_id": snapshot.config.get("configurable", {}).get("checkpoint_id"),
+        }
+
+    async def run_workflow(self, session_id: UUID, *, mode: RunMode = "fresh") -> None:
         async with async_session_factory() as db:
             session = await SessionService.get(db, session_id)
             if not session:
@@ -50,88 +72,71 @@ class WorkflowService:
             session.workflow_status = "running"
             session.error_message = None
             await db.commit()
+            company_name = session.company_name
+            website = session.website
+            objective = session.objective
+
+        graph = self.get_graph()
+        config = self._graph_config(session_id)
 
         try:
-            state = initial_state(
-                session_id=str(session_id),
-                company_name=session.company_name,
-                website=session.website,
-                objective=session.objective,
-            )
+            graph_input: dict | None
+            final_state: dict
 
-            graph = self.get_graph()
-            final_state = None
-
-            async with async_session_factory() as db:
-                await event_emitter.emit(
-                    db, session_id, "workflow", "started", {"company": session.company_name}
+            if mode == "fresh":
+                await self.clear_checkpoint(session_id)
+                graph_input = initial_state(
+                    session_id=str(session_id),
+                    company_name=company_name,
+                    website=website,
+                    objective=objective,
                 )
-                await db.commit()
+                final_state = dict(graph_input)
+                should_stream = True
+            else:
+                snapshot = await graph.aget_state(config)
+                if not snapshot or not snapshot.values:
+                    raise ValueError("No checkpoint found for this session")
 
-            # Stream through graph nodes manually to emit events per node
-            current_state = dict(state)
-            for node_name in ["planner", "research", "analyze", "quality_check"]:
-                current_state = await self._run_node_with_events(session_id, node_name, current_state)
+                final_state = dict(snapshot.values)
+                should_stream = bool(snapshot.next)
+                graph_input = None
+                if not should_stream:
+                    await self._finalize_workflow(session_id, final_state)
+                    return
 
-            # Conditional routing loop
-            while True:
-                from app.graph.nodes.quality import route_after_quality
-
-                route = route_after_quality(current_state)
-                if route == "recovery":
-                    current_state = await self._run_node_with_events(session_id, "recovery", current_state)
-                    current_state = await self._run_node_with_events(session_id, "research", current_state)
-                    current_state = await self._run_node_with_events(session_id, "analyze", current_state)
-                    current_state = await self._run_node_with_events(session_id, "quality_check", current_state)
-                else:
-                    break
-
-            current_state = await self._run_node_with_events(
-                session_id, "report_generator", current_state
-            )
-            current_state = await self._run_node_with_events(
-                session_id, "report_validation", current_state
-            )
-            final_state = current_state
-
-            async with async_session_factory() as db:
-                session = await SessionService.get(db, session_id)
-                if session and final_state:
-                    report = final_state.get("report", {})
-                    if report:
-                        await SessionService.save_report(db, session_id, report)
-                        context = self._build_report_context(report)
-                        await context_cache.set_report_context(str(session_id), context)
-                        try:
-                            chunk_count = await report_rag.index_report(str(session_id), report, db)
-                            logger.info(
-                                "report_rag_indexed",
-                                session_id=str(session_id),
-                                chunks=chunk_count,
-                            )
-                        except Exception as exc:
-                            logger.warning(
-                                "report_rag_index_failed",
-                                session_id=str(session_id),
-                                error=str(exc),
-                            )
-
-                    session.status = WorkflowStatus.COMPLETED
-                    session.workflow_status = "completed"
-                    session.total_tokens = final_state.get("total_tokens", 0)
-                    session.total_cost_usd = final_state.get("total_cost_usd", 0.0)
-
+            if mode == "fresh":
+                async with async_session_factory() as db:
+                    await event_emitter.emit(
+                        db, session_id, "workflow", "started", {"company": company_name}
+                    )
+                    await db.commit()
+            else:
+                async with async_session_factory() as db:
                     await event_emitter.emit(
                         db,
                         session_id,
                         "workflow",
-                        "completed",
-                        {
-                            "total_tokens": session.total_tokens,
-                            "total_cost_usd": session.total_cost_usd,
-                        },
+                        "resumed",
+                        {"next_nodes": list((await graph.aget_state(config)).next or ())},
                     )
-                await db.commit()
+                    await db.commit()
+
+            if should_stream:
+                async for chunk in graph.astream(graph_input, config=config, stream_mode="updates"):
+                    for node_name, updates in chunk.items():
+                        final_state = {**final_state, **updates}
+                        logger.info(
+                            "graph_node_completed",
+                            session_id=str(session_id),
+                            node=node_name,
+                        )
+
+                snapshot = await graph.aget_state(config)
+                if snapshot and snapshot.values:
+                    final_state = dict(snapshot.values)
+
+            await self._finalize_workflow(session_id, final_state)
 
         except Exception as e:
             logger.error("workflow_failed", session_id=str(session_id), error=str(e))
@@ -148,67 +153,45 @@ class WorkflowService:
         finally:
             _running_tasks.pop(str(session_id), None)
 
-    async def _run_node_with_events(
-        self, session_id: UUID, node_name: str, state: dict
-    ) -> dict:
-        from app.graph.nodes import (
-            analyze_node,
-            planner_node,
-            quality_check_node,
-            recovery_node,
-            report_generator_node,
-            report_validation_node,
-            research_node,
-        )
-
-        node_map = {
-            "planner": planner_node,
-            "research": research_node,
-            "analyze": analyze_node,
-            "quality_check": quality_check_node,
-            "recovery": recovery_node,
-            "report_generator": report_generator_node,
-            "report_validation": report_validation_node,
-        }
-
-        import time
-
-        start = time.time()
+    async def _finalize_workflow(self, session_id: UUID, final_state: dict) -> None:
         async with async_session_factory() as db:
-            await event_emitter.emit(db, session_id, node_name, "started", {})
-            await db.commit()
+            session = await SessionService.get(db, session_id)
+            if session and final_state:
+                report = final_state.get("report", {})
+                if report:
+                    await SessionService.save_report(db, session_id, report)
+                    context = self._build_report_context(report)
+                    await context_cache.set_report_context(str(session_id), context)
+                    try:
+                        chunk_count = await report_rag.index_report(str(session_id), report, db)
+                        logger.info(
+                            "report_rag_indexed",
+                            session_id=str(session_id),
+                            chunks=chunk_count,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "report_rag_index_failed",
+                            session_id=str(session_id),
+                            error=str(exc),
+                        )
 
-        try:
-            node_fn = node_map[node_name]
-            updates = await node_fn(state)
-            merged = {**state, **updates}
-            duration_ms = int((time.time() - start) * 1000)
+                session.status = WorkflowStatus.COMPLETED
+                session.workflow_status = "completed"
+                session.total_tokens = final_state.get("total_tokens", 0)
+                session.total_cost_usd = final_state.get("total_cost_usd", 0.0)
 
-            async with async_session_factory() as db:
                 await event_emitter.emit(
                     db,
                     session_id,
-                    node_name,
+                    "workflow",
                     "completed",
-                    {"node_outputs": merged.get("node_outputs", {}).get(node_name, {})},
-                    tokens=updates.get("total_tokens", 0) - state.get("total_tokens", 0),
-                    cost_usd=updates.get("total_cost_usd", 0.0) - state.get("total_cost_usd", 0.0),
-                    duration_ms=duration_ms,
+                    {
+                        "total_tokens": session.total_tokens,
+                        "total_cost_usd": session.total_cost_usd,
+                    },
                 )
-                await context_cache.set_node_output(
-                    str(session_id), node_name, merged.get("node_outputs", {}).get(node_name, {})
-                )
-                await db.commit()
-
-            return merged
-        except Exception as e:
-            duration_ms = int((time.time() - start) * 1000)
-            async with async_session_factory() as db:
-                await event_emitter.emit(
-                    db, session_id, node_name, "failed", {"error": str(e)}, duration_ms=duration_ms
-                )
-                await db.commit()
-            raise
+            await db.commit()
 
     @staticmethod
     def _build_report_context(report: dict) -> str:
@@ -233,15 +216,18 @@ class WorkflowService:
             parts.append("## Unknowns\n" + "\n".join(f"- {u}" for u in unknowns))
         return "\n\n".join(parts)
 
-    async def start_background(self, session_id: UUID) -> None:
+    async def start_background(self, session_id: UUID, *, mode: RunMode = "fresh") -> None:
         sid = str(session_id)
         if sid in _running_tasks and not _running_tasks[sid].done():
             return
-        task = asyncio.create_task(self.run_workflow(session_id))
+        task = asyncio.create_task(self.run_workflow(session_id, mode=mode))
         _running_tasks[sid] = task
 
     async def retry(self, session_id: UUID) -> None:
-        await self.start_background(session_id)
+        await self.start_background(session_id, mode="fresh")
+
+    async def resume(self, session_id: UUID) -> None:
+        await self.start_background(session_id, mode="resume")
 
     @staticmethod
     async def get_events(db: AsyncSession, session_id: UUID) -> list[WorkflowEvent]:

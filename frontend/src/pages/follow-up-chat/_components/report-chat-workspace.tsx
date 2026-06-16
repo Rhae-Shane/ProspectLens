@@ -47,12 +47,12 @@ export function ReportChatWorkspace() {
   const selectedSession = sessions.find((session) => session.id === selectedSessionId)
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div
         data-content-padding="false"
-        className="grid min-h-0 w-full max-w-none flex-1 overflow-hidden lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] lg:divide-x"
+        className="grid min-h-0 flex-1 grid-rows-1 overflow-hidden lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] lg:divide-x"
       >
-        <div className="h-full overflow-hidden">
+        <div className="flex min-h-0 flex-col overflow-hidden">
           <ReportList
             sessions={sessions}
             selectedSessionId={selectedSessionId}
@@ -66,7 +66,7 @@ export function ReportChatWorkspace() {
             emptyMessage="No completed reports available for chat."
           />
         </div>
-        <div className="hidden h-full overflow-hidden lg:block">
+        <div className="hidden min-h-0 flex-col overflow-hidden lg:flex">
           <ReportChatPanel sessionId={selectedSessionId} />
         </div>
       </div>
@@ -74,7 +74,7 @@ export function ReportChatWorkspace() {
       <Sheet open={chatOpen} onOpenChange={setChatOpen}>
         <SheetContent
           side="right"
-          className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-none data-[side=right]:md:w-3/4"
+          className="flex h-full flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-none data-[side=right]:md:w-3/4"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>
@@ -85,6 +85,6 @@ export function ReportChatWorkspace() {
           <ReportChatPanel sessionId={selectedSessionId} />
         </SheetContent>
       </Sheet>
-    </>
+    </div>
   )
 }

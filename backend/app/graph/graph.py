@@ -10,19 +10,30 @@ from app.graph.nodes import (
     research_node,
     route_after_quality,
 )
+from app.graph.observability import observable_node
 from app.graph.state import ResearchState
+
+GRAPH_NODE_NAMES = (
+    "planner",
+    "research",
+    "analyze",
+    "quality_check",
+    "recovery",
+    "report_generator",
+    "report_validation",
+)
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(ResearchState)
 
-    graph.add_node("planner", planner_node)
-    graph.add_node("research", research_node)
-    graph.add_node("analyze", analyze_node)
-    graph.add_node("quality_check", quality_check_node)
-    graph.add_node("recovery", recovery_node)
-    graph.add_node("report_generator", report_generator_node)
-    graph.add_node("report_validation", report_validation_node)
+    graph.add_node("planner", observable_node("planner", planner_node))
+    graph.add_node("research", observable_node("research", research_node))
+    graph.add_node("analyze", observable_node("analyze", analyze_node))
+    graph.add_node("quality_check", observable_node("quality_check", quality_check_node))
+    graph.add_node("recovery", observable_node("recovery", recovery_node))
+    graph.add_node("report_generator", observable_node("report_generator", report_generator_node))
+    graph.add_node("report_validation", observable_node("report_validation", report_validation_node))
 
     graph.set_entry_point("planner")
     graph.add_edge("planner", "research")
@@ -43,6 +54,5 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def compile_graph():
-    graph = build_graph()
-    return graph.compile()
+def compile_graph(checkpointer=None):
+    return build_graph().compile(checkpointer=checkpointer)

@@ -295,12 +295,12 @@ Recommended: skip flag for assignment repo — single PR with tests is fine.
 
 ```
 [ ] 1. Extract emit_started/completed/failed from workflow_service → graph/observability.py
-[ ] 2. Add observable_node wrapper; register in build_graph()
-[ ] 3. Replace manual loop with graph.astream(stream_mode="updates")
-[ ] 4. Remove _run_node_with_events, NODE_ORDER, duplicate routing
-[ ] 5. Add test_graph_execution.py with mocked nodes
+[x] 2. Add observable_node wrapper; register in build_graph()
+[x] 3. Replace manual loop with graph.astream(stream_mode="updates")
+[x] 4. Remove _run_node_with_events, NODE_ORDER, duplicate routing
+[x] 5. Add test_graph_execution.py with mocked nodes
 [ ] 6. Manual QA on Docker stack
 [ ] 7. Update architecture.md + engineering-decisions.md
-[ ] 8. (Phase 2) Add langgraph-checkpoint-postgres + resume endpoint
+[x] 8. (Phase 2) Add langgraph-checkpoint-postgres + resume endpoint
 [ ] 9. (Phase 4) Update WorkflowProgress node list
 ```
