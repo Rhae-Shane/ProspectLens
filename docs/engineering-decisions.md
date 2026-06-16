@@ -23,16 +23,19 @@
 
 **Tradeoffs**: Multiple API keys and billing accounts. Provider abstraction and parallel fan-out add complexity. Benefit: richer evidence, Apollo firmographics for snapshot fields, and targeted chat tools without re-running the full workflow.
 
-## Decision 2: Manual Node Orchestration with Event Emission vs Pure Graph Invoke
+## Decision 2: Native LangGraph Execution with Observable Node Wrappers
 
-**Choice**: Execute nodes sequentially via `workflow_service` with explicit event emission, while maintaining the LangGraph `StateGraph` for structure and routing logic.
+**Choice (updated):** Execute the workflow via `graph.astream(stream_mode="updates")` in `workflow_service.py`. Each node is wrapped with `observable_node()` in `graph/observability.py` to emit SSE/DB events and cache node outputs — preserving observability without manual traversal.
+
+**Previous approach:** Manual sequential node calls duplicated graph routing in `workflow_service.py` (removed in Phase 1).
 
 **Alternatives considered**:
 
-- Pure `graph.ainvoke()` — simpler but harder to emit per-node SSE events
+- Pure `graph.ainvoke()` without wrappers — simpler but loses per-node SSE events
+- Manual orchestration — full event control but duplicates `graph.py` routing
 - Celery task queue — over-engineered for current scope
 
-**Tradeoffs**: Some duplication between graph definition and execution loop. Benefit: full observability with SSE progress, DB events, and retry control.
+**Tradeoffs**: Wrappers add a thin layer around each node. Benefit: single source of truth for routing in `graph.py`, native LangGraph execution for assignment compliance, and unchanged frontend SSE contract.
 
 ## Decision 3: Redis Context Cache with In-Memory Fallback
 
@@ -102,15 +105,24 @@
 
 **Tradeoffs**: Formatting depends on browser print engine. Benefit: zero backend changes, works in dev and production immediately.
 
+## Decision 9: LangGraph Postgres Checkpointer
+
+**Choice**: `AsyncPostgresSaver` from `langgraph-checkpoint-postgres`, initialized in FastAPI lifespan; `thread_id = session_id`.
+
+**Alternatives considered**:
+
+- In-memory checkpointer — no crash recovery across restarts
+- Redis checkpointer — extra infra; Postgres already required for sessions/RAG
+
+**Tradeoffs**: LangGraph creates its own checkpoint tables on `setup()`. Benefit: mid-run failures leave a resumable checkpoint; `POST /resume` continues from the last completed node without re-running planner/research. `POST /run` and `POST /retry` clear the thread and start fresh.
+
 ## Top Technical Debt
 
-1. Manual node execution duplicates LangGraph graph traversal — should use LangGraph streaming API
-2. No Postgres checkpointer wired yet (graph compiles without checkpointer)
-3. Alembic migrations not copied into production Docker image — `create_all` used on startup in dev
-4. Report schema validation is lenient — malformed LLM output could partially fail
-5. JWT auth added but sessions are not user-scoped; no rate limiting on APIs
-6. Chat history truncation is hardcoded to last 6 messages
-7. Existing sessions do not auto-reindex RAG when report schema changes without re-run
+1. Alembic migrations not copied into production Docker image — `create_all` used on startup in dev
+2. Report schema validation is lenient — malformed LLM output could partially fail
+3. JWT auth added but sessions are not user-scoped; no rate limiting on APIs
+4. Chat history truncation is hardcoded to last 6 messages
+5. Existing sessions do not auto-reindex RAG when report schema changes without re-run
 
 ## Biggest Technical Risk
 
@@ -118,7 +130,7 @@
 
 ## With 2 Additional Weeks
 
-1. Wire LangGraph Postgres checkpointer for true crash recovery
+1. ~~Wire LangGraph Postgres checkpointer for true crash recovery~~ (done — Phase 2)
 2. Add integration tests with mocked providers
 3. Implement streaming chat responses (SSE tokens)
 4. Add user authentication and session ownership

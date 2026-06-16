@@ -38,8 +38,8 @@ flowchart LR
 
 1. User creates a research session (company, website, objective) via the frontend.
 2. Frontend calls `POST /api/v1/sessions/{id}/run`.
-3. Backend runs the LangGraph workflow as an async background task.
-4. Each node executes sequentially (with a conditional retry loop after quality check).
+3. Backend runs the compiled LangGraph via `graph.astream()` as an async background task (`workflow_service.py`).
+4. Each node executes through the graph (with conditional retry loop after quality check); observability wrappers emit SSE/DB events per node.
 5. Node events persist to `workflow_events` and stream to the UI via SSE.
 6. The final structured report saves to `reports.content` (JSONB).
 7. Report chunks are embedded and indexed into `report_rag_chunks` (pgvector).
@@ -72,6 +72,19 @@ After **Quality Check**:
 - Otherwise → **Recovery** → **Research** (retry loop)
 
 After **Report Generator** → **Report Validation** → END.
+
+### Checkpointing & Resume
+
+The compiled graph uses `AsyncPostgresSaver` (`langgraph-checkpoint-postgres`). Each session maps to a LangGraph `thread_id` equal to the session UUID.
+
+| Action | Endpoint | Behavior |
+|--------|----------|----------|
+| Fresh run | `POST /sessions/{id}/run` | Clears checkpoint thread, streams from planner |
+| Full restart | `POST /sessions/{id}/retry` | Same as fresh run after failure |
+| Resume | `POST /sessions/{id}/resume` | `astream(None, config)` from last checkpoint |
+| Checkpoint status | `GET /sessions/{id}/workflow/state` | `next_nodes`, `can_resume` |
+
+On mid-run failure the checkpoint is preserved so resume can continue. Post-graph finalize (save report, RAG index) runs on successful completion or when the graph is already at END but finalize previously failed.
 
 ### Research Providers
 
@@ -207,6 +220,8 @@ Falls back to in-process dict when Redis is unavailable.
 |------|--------|-------|
 | Sessions | `/api/v1/sessions` | CRUD, run workflow |
 | Workflow | `/api/v1/sessions/{id}/events` | SSE event stream |
+| Workflow | `/api/v1/sessions/{id}/resume` | Resume from Postgres checkpoint |
+| Workflow | `/api/v1/sessions/{id}/workflow/state` | Checkpoint summary |
 | Chat | `/api/v1/sessions/{id}/chat` | Follow-up messages |
 | Chat tools | `/api/v1/chat/tools` | List available tools |
 | Usage | `/api/v1/usage` | Token/cost summaries |

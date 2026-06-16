@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   AlertCircle,
@@ -14,7 +14,6 @@ import {
   Info,
   Loader2,
   MessageSquare,
-  RefreshCw,
   Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -27,7 +26,6 @@ import { providerColor, providerLabel } from '@/lib/source-utils'
 import { cn, formatCost } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatPanel } from '@/prospectlens/ChatPanel'
@@ -36,6 +34,7 @@ import { extractResearchProviders } from '@/prospectlens/NodeOutputSummary'
 import { ReportSectionsView } from '@/prospectlens/report-briefing/ReportSectionsView'
 import { SessionStatusBadge } from '@/prospectlens/SessionStatusBadge'
 import { WorkflowProgress } from '@/prospectlens/WorkflowProgress'
+import { WorkflowRecoveryActions } from '@/prospectlens/WorkflowRecoveryActions'
 import { WorkflowTrace } from '@/prospectlens/WorkflowTrace'
 
 import { WorkspaceEmptyState } from '@/components/workspace-empty-state'
@@ -226,14 +225,8 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
     return score > 0 ? score : null
   }, [allEvents])
 
-  const retryMutation = useMutation({
-    mutationFn: () => api.retryWorkflow(sessionId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
-      queryClient.invalidateQueries({ queryKey: ['events', sessionId] })
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
-    },
-  })
+  const showRecoveryActions =
+    session?.status === 'failed' || (session?.status === 'running' && !streamActive)
 
   if (!sessionId) return <EmptySessionDetails />
 
@@ -326,19 +319,12 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                   title="Session Details"
                   description="Company context and research objective for this run."
                   action={
-                    session.status === 'failed' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => retryMutation.mutate()}
-                        disabled={retryMutation.isPending}
-                      >
-                        <RefreshCw
-                          className={cn('size-4', retryMutation.isPending && 'animate-spin')}
-                          data-icon="inline-start"
-                        />
-                        Retry workflow
-                      </Button>
+                    showRecoveryActions ? (
+                      <WorkflowRecoveryActions
+                        sessionId={session.id}
+                        sessionStatus={session.status}
+                        streamActive={streamActive}
+                      />
                     ) : undefined
                   }
                 />
@@ -416,6 +402,15 @@ export function SessionDetailsPanel({ sessionId, expectRunning = false }: Sessio
                 <ViewSectionHeader
                   title="Workflow"
                   description="Live progress across research pipeline steps."
+                  action={
+                    showRecoveryActions ? (
+                      <WorkflowRecoveryActions
+                        sessionId={session.id}
+                        sessionStatus={session.status}
+                        streamActive={streamActive}
+                      />
+                    ) : undefined
+                  }
                 />
                 <Card>
                   <CardContent className="pt-6">

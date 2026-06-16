@@ -8,7 +8,11 @@ def test_route_after_quality_proceeds_on_high_score():
 
 
 def test_route_after_quality_retries_on_low_score():
-    state = {"quality_score": 0.5, "retry_count": 0}
+    state = {
+        "quality_score": 0.5,
+        "retry_count": 0,
+        "section_coverage": {"company_overview": 0.3},
+    }
     assert route_after_quality(state) == "recovery"
 
 
