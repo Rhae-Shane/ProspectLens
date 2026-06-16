@@ -37,7 +37,7 @@ ProspectLens is an AI Research Copilot that helps sales teams prepare for busine
 2. Run:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+docker compose up --build
 ```
 
 3. Open http://localhost:3000 (frontend) and http://localhost:8000/docs (API)
@@ -143,16 +143,9 @@ pytest tests/ -v
 
 Includes graph routing, native `astream` execution, and checkpoint resume (`test_checkpoint_resume.py`).
 
-### CI/CD (manual)
+### CI (manual)
 
-GitHub Actions workflows run **only when you trigger them** (not on every push):
-
-| Workflow | What it does |
-|----------|----------------|
-| **CI** | Backend `pytest` + frontend `npm run build` |
-| **Deploy Production** | Same tests, then deploy to production (HTTPS via Certbot) |
-
-Setup secrets (`DEPLOY_HOST`, `DEPLOY_DOMAIN`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#github-actions-manual-cicd).
+GitHub Actions → **CI** → **Run workflow** runs `pytest` + `npm run build`. Nothing deploys automatically.
 
 ### Demo: workflow failure & resume
 

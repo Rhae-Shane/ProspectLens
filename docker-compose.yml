@@ -1,66 +1,75 @@
-services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: prospectlens
-      POSTGRES_PASSWORD: prospectlens
-      POSTGRES_DB: prospectlens
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prospectlens"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    build: ./backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://prospectlens:prospectlens@postgres:5432/prospectlens
-      REDIS_URL: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
-      NEWAPIORG_API_KEY: ${NEWAPIORG_API_KEY:-}
-      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
-      PRODUCTHUNT_DEVELOPER_TOKEN: ${PRODUCTHUNT_DEVELOPER_TOKEN:-}
-      PRODUCTHUNT_API_KEY: ${PRODUCTHUNT_API_KEY:-}
-      PRODUCTHUNT_API_SECRET: ${PRODUCTHUNT_API_SECRET:-}
-      APOLLO_API_KEY: ${APOLLO_API_KEY:-}
-      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
-      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
-      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-prospectlens}
-      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-me-in-production}
-      AUTH_TOKEN_EXPIRE_HOURS: ${AUTH_TOKEN_EXPIRE_HOURS:-168}
-      AUTH_USER_1_EMAIL: ${AUTH_USER_1_EMAIL:-admin@prospectlens.com}
-      AUTH_USER_1_PASSWORD: ${AUTH_USER_1_PASSWORD:-changeme123}
-      AUTH_USER_1_NAME: ${AUTH_USER_1_NAME:-Admin}
-      AUTH_USER_2_EMAIL: ${AUTH_USER_2_EMAIL:-dev@prospectlens.com}
-      AUTH_USER_2_PASSWORD: ${AUTH_USER_2_PASSWORD:-}
-      AUTH_USER_2_NAME: ${AUTH_USER_2_NAME:-User}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: ""
-    depends_on:
-      - backend
-
-volumes:
-  postgres_data:
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: prospectlens
+      POSTGRES_PASSWORD: prospectlens
+      POSTGRES_DB: prospectlens
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prospectlens"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://prospectlens:prospectlens@postgres:5432/prospectlens
+      REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      NEWAPIORG_API_KEY: ${NEWAPIORG_API_KEY:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      PRODUCTHUNT_DEVELOPER_TOKEN: ${PRODUCTHUNT_DEVELOPER_TOKEN:-}
+      PRODUCTHUNT_API_KEY: ${PRODUCTHUNT_API_KEY:-}
+      PRODUCTHUNT_API_SECRET: ${PRODUCTHUNT_API_SECRET:-}
+      APOLLO_API_KEY: ${APOLLO_API_KEY:-}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-prospectlens}
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-me-in-production}
+      AUTH_TOKEN_EXPIRE_HOURS: ${AUTH_TOKEN_EXPIRE_HOURS:-168}
+      AUTH_USER_1_EMAIL: ${AUTH_USER_1_EMAIL:-admin@prospectlens.com}
+      AUTH_USER_1_PASSWORD: ${AUTH_USER_1_PASSWORD:-changeme123}
+      AUTH_USER_1_NAME: ${AUTH_USER_1_NAME:-Admin}
+      AUTH_USER_2_EMAIL: ${AUTH_USER_2_EMAIL:-dev@prospectlens.com}
+      AUTH_USER_2_PASSWORD: ${AUTH_USER_2_PASSWORD:-}
+      AUTH_USER_2_NAME: ${AUTH_USER_2_NAME:-User}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
